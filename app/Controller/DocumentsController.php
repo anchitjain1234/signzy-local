@@ -112,18 +112,27 @@ function create() {
   public function upload2()
   {
     $this->layout = 'insidelayout';
+
     if (!empty($this->data))
     {
 			$this->Document->create($this->data);
-
       $this->request->data['Document']['ownerid']= CakeSession::read("Auth.User.id");
-			if ($this->Document->save($this->request->data))
+
+      if($this->Document->validates())
       {
-        $this->set('document', $this->Document->findById($this->Document->id));
-			}
+        if ($this->Document->save($this->request->data))
+        {
+          $this->Session->setFlash(__('Your document has been uploaded successfully.'),'flash_success');
+          $this->set('document', $this->Document->findById($this->Document->id));
+  			}
+        else
+        {
+          $this->Session->setFlash(__('Your document couldn\'t be uploaded.'),'flash_error');
+        }
+      }
       else
       {
-        echo "error";
+        $this->Session->setFlash(__('Your document couldn\'t be uploaded.'),'flash_error');
       }
 		}
   }
