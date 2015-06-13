@@ -4,6 +4,8 @@ App::uses('CakeEmail', 'Network/Email');
 class DocumentsController extends AppController
 {
 
+
+
   public function beforeFilter()
 	{
 		/*
@@ -22,8 +24,14 @@ class DocumentsController extends AppController
 
   public $uses = array('Document');
   var $helpers = array('Form', 'UploadPack.Upload');
+
+
+
   public function index()
   {
+    /*
+    To display all the previous uploaded documents of the user.
+    */
     $this->layout = 'insidelayout';
     $uid = CakeSession::read("Auth.User.id");
     $parameters = array(
@@ -34,6 +42,11 @@ class DocumentsController extends AppController
 
   }
 
+
+
+  /*
+  Remove functions display , example1 , create , show later.
+  */
   public function display() {
   /* form submitted? */
     if ($this->request->is('post')) {
@@ -83,11 +96,18 @@ function create() {
 	function show($id) {
 		$this->set('document', $this->Document->findById($id));
 	}
+ /*
+ Remove till here.
+ */
+
+
 
   public function upload()
   {
     $this->layout = 'insidelayout';
   }
+
+
 
   public function upload2()
   {
