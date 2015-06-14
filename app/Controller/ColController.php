@@ -28,7 +28,7 @@ class ColController extends AppController
     if ($this->request->is('get')) {
         $term = $this->request->query('term');
         $userNames = $this->User->find('list', array(
-          'conditions' => array('name' => new MongoRegex("/".$term."/i")),
+          'conditions' => array('username' => $term),
           'fields' => array('name')
         ));
 

@@ -7,7 +7,7 @@
 
   //form with autocomplete class field
   echo $this->Form->create();
-  echo $this->Form->input('name', array('class' => 'ui-autocomplete',
+  echo $this->Form->input('name', array('class' => 'ui-autocomplete ui-widget',
                'id' => 'autocomplete'));
   echo $this->Form->end();
   ?>
