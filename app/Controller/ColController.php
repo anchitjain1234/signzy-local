@@ -58,6 +58,11 @@ class ColController extends AppController
 
   }
 
+  public function test()
+  {
+    
+  }
+
 }
 
 ?>
