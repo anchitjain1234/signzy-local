@@ -39,8 +39,9 @@
           <input type="submit" value="Upload" class="btn btn-primary">
         </div>
       </form>
+      <button type="button" class="btn btn-info" data-toggle="modal" data-target="#myModal">Add Signatory</button>
+      <ul class="list-group" id="signatory_holder"></ul>
     </div>
-    <button type="button" class="btn btn-info" data-toggle="modal" data-target="#myModal">Add Signatory</button>
 
   <!-- Modal -->
  <div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
@@ -51,14 +52,13 @@
     <h4 class="modal-title" id="myModalLabel">Add a signatory</h4>
   </div>
   <div class="modal-body">
-    <?php echo $this->Form->create('Collabarator' ,array('class'=>'form-horizontal')); ?>
 
             <div class="form-group">
               <?php
-              echo $this->Form->label('name', 'Full Name:', array('class'=>'control-label')); ?>
-              <div class="col-sm-8">
-                <?php echo $this->Form->input("name",array('class' => 'form-control','placeholder' => 'Name, as per your legal documents' , 'id' => 'name_search','label' => false , 'autocomplete'=>"off" )); ?>
-              </div>
+              echo $this->Form->label('usernsme', 'Email:', array('class'=>'control-label')); ?>
+                <?php echo $this->Form->input("username",array('class' => 'form-control','placeholder' => 'Email address' , 'id' => 'email_search','label' => false , 'autocomplete'=>"off" )); ?>
+                <div id="results"></div>
+                <div id="empty-message"></div>
             </div>
             <!--
             <div class="form-group">
@@ -85,11 +85,10 @@
               </div>
             </div>
           -->
-          </form>
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
-    <button type="button" class="btn btn-primary">Add</button>
+    <button type="button" class="btn btn-primary" id="add_button">Add</button>
   </div>
 </div>
 </div>
@@ -99,6 +98,6 @@
 
 <?php echo $this->Html->script('jquery-1.11.1.min.js');
 echo $this->Html->script('bootstrap.min.js');
-echo $this->Html->script('https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js');
+echo $this->Html->script('jquery-ui.min.js');
 echo $this->Html->script('tagmanager.js');
 echo $this->Html->script('upload2.js');?>

@@ -4,7 +4,8 @@ class ColController extends AppController
 {
 
   public $layout = 'insidelayout';
-  public $components = array('RequestHandler','DebugKit.Toolbar');
+  public $components = array('RequestHandler');
+  //DebugKit.Toolbar
   public function beforeFilter()
 	{
 		/*
@@ -25,7 +26,7 @@ class ColController extends AppController
 
   public function index()
   {
-    if ($this->request->is('get')) {
+    if ($this->request->is('ajax')) {
         $term = $this->request->query('term');
         $userNames = $this->User->find('list', array(
           'conditions' => array('username' => $term),
@@ -50,6 +51,11 @@ class ColController extends AppController
       $search_data = $this->User->find('all',$params);
 
     }
+  }
+
+  public function index2()
+  {
+
   }
 
 }
