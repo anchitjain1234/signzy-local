@@ -35,12 +35,14 @@
           <label for="DocumentAvatar" class="control-label">Document:</label>
           <input class="form-control" type="file" name="data[Document][avatar]" id="DocumentAvatar" required="required">
         </div>
+        <input id="emails_hidden" name="emails_hidden" type="hidden" />
+        <b>Signatories</b>:
+        <ul class="list-group" id="signatory_holder"></ul>
         <div class="submit form-group has-feedback">
-          <input type="submit" value="Upload" class="btn btn-primary">
+          <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal"><span class="glyphicon glyphicon-plus"></span>Add Signatory</button>
         </div>
+        <input type="submit" value="Upload" class="btn btn-success btn-block" id="submitform">
       </form>
-      <button type="button" class="btn btn-info" data-toggle="modal" data-target="#myModal">Add Signatory</button>
-      <ul class="list-group" id="signatory_holder"></ul>
     </div>
 
   <!-- Modal -->
