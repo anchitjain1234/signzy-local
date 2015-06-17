@@ -1,4 +1,4 @@
 CakePHP
 =======
 
-This is the branch for making collabaration work.
+This is the master branch.
