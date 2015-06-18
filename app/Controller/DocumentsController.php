@@ -31,15 +31,38 @@ class DocumentsController extends AppController
   public function index()
   {
     /*
-    To display all the previous uploaded documents of the user.
+    To display all the previous uploaded documents of the user as well as the documents in which the
+    user id requested to sign it.
     */
 
     $uid = CakeSession::read("Auth.User.id");
     $parameters = array(
-      'fields' => array('id','avatar_file_name','name'),
+      'fields' => array('id','avatar_file_name','name','created','status'),
       'conditions' => array('ownerid'=> $uid)
     );
-    $this->set('user_documents_data',$this->Document->find('all',$parameters));
+    $user_documents_data=$this->Document->find('all',$parameters);
+
+    /*
+    Now finding documents in which user is a collabarator
+    */
+    $this->loadModel('Col');
+    $parameters = array(
+      'fields' => array('did'),
+      'conditions' => array('uid'=> $uid)
+    );
+    $coldata  = $this->Col->find('all',$parameters);
+    if($coldata)
+    {
+      foreach ($coldata as $col):
+        $parameters = array(
+          'fields' => array('id','avatar_file_name','name','created','status'),
+          'conditions' => array('id'=> $col['Col']['did'])
+        );
+        array_push($user_documents_data,$this->Document->find('first',$parameters));
+      endforeach;
+    }
+    $this->set('user_documents_data',$user_documents_data);
+
 
   }
 
@@ -163,9 +186,26 @@ class DocumentsController extends AppController
       if (isset($this->params['url']['token']) && isset($this->params['url']['userid']) &&
           isset($this->params['url']['docuid']))
       {
-        $token=$this->params['url']['token'];
-        $userid=$this->params['url']['userid'];
-        $docuid=$this->params['url']['docuid'];
+        /*
+        Checking if the current logged in user is the user that was requested to sign the document.
+        Otherwise logout the current user and ask him to login again with the account which was requested to
+        sign
+        */
+        if(AuthComponent::user('id'))
+        {
+          if(CakeSession::read("Auth.User.id") === $this->params['url']['userid'])
+          {
+            $token=$this->params['url']['token'];
+            $userid=$this->params['url']['userid'];
+            $docuid=$this->params['url']['docuid'];
+          }
+          else
+          {
+            $this->Auth->logout();
+            $this->Session->setFlash(__('Please login with your account to sign the document.'), 'flash_warning');
+            return $this->redirect(array('controller'=>'users','action' => 'index'));
+          }
+        }
       }
       else
       {
