@@ -319,45 +319,46 @@ class DocumentsController extends AppController
           }
         }
 
-        $this->Session->setFlash(__('Your status updated successfully.
+        /*
+        Sending the notification email to the owner that there has been some changes in document.
+        Letting him to know to visit the dashboard
+        Will add the option in future to disable email alert for every status update.
+        Also include here to send the emails to all the other collabarators also to notify them of the change.
+        */
+        $parameters=array(
+          'conditions'=>array(
+            'id'=>$docuid
+            ),
+          'fields'=>array('ownerid')
+          );
+        $owner_id=$this->Document->find('first',$parameters);
+
+        $parameters=array(
+          'conditions'=>array(
+            'id'=>$owner_id['Document']['ownerid']
+            ),
+          'fields'=>array('username','name')
+          );
+
+        $owner_data=$this->User->find('first',$parameters);
+        $document_change_email=new CakeEmail('mandrill_signup');
+        $document_change_email->to($owner_data['User']['username']);
+        $document_change_email->subject('Document Status Updated');
+        $document_change_email->template('document_updated_request','notification_email_layout')
+                              ->viewVars(array('dashboard_link' =>
+                                              Router::url( array('controller' => 'dashboard',
+                                                                 'action' => 'index' ), true ),
+                                               'name_of_user' => $owner_email['User']['name']));
+        $document_change_email->send();
+
+        return $this->Session->setFlash(__('Your status updated successfully.
                                     '),'flash_success');
       }
       else
       {
-        $this->Session->setFlash(__('Error while saving your data.Please try again later.
+        return $this->Session->setFlash(__('Error while saving your data.Please try again later.
                                     '),'flash_error');
       }
-
-      /*
-      Sending the notification email to the owner that there has been some changes in document.
-      Letting him to know to visit the dashboard
-      Will add the option in future to disable email alert for every status update.
-      */
-      $parameters=array(
-        'conditions'=>array(
-          'id'=>$docuid
-          ),
-        'fields'=>array('ownerid')
-        );
-      $owner_id=$this->Document->find('first',$parameters);
-
-      $parameters=array(
-        'conditions'=>array(
-          'id'=>$owner_id['Document']['ownerid']
-          ),
-        'fields'=>array('username','name')
-        );
-
-      $owner_data=$this->User->find('first',$parameters);
-      $document_change_email=new CakeEmail('mandrill_signup');
-      $document_change_email->to($owner_data['User']['username']);
-      $document_change_email->subject('Document Status Updated');
-      $document_change_email->template('document_updated_request','notification_email_layout')
-                            ->viewVars(array('dashboard_link' =>
-                                            Router::url( array('controller' => 'dashboard',
-                                                               'action' => 'index' ), true ),
-                                             'name_of_user' => $owner_email['User']['name']));
-      $document_change_email->send();
 
     }
   }
