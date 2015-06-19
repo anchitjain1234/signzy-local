@@ -102,6 +102,7 @@ class DocumentsController extends AppController
               $document_name  = $this->request->data['Document']['name'];
 
               /*
+              Issue here we should make document name unique for each user
               Get document id where ownerid = current user id and name = current uploaded document name
               */
               $params = array(
