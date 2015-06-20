@@ -1,5 +1,4 @@
 $(function() {
-	console.log(window.location.href);
 	$("#delete_delete").attr('disabled', 'disabled');
 	$("#delete").click(function(e) {
 		$("#modal_delete").modal();
@@ -22,11 +21,20 @@ $(function() {
 			data: {
 				"docuid": $('.docidholder').attr('id')
 			},
-			success: function() {
-				alert('success');
+			success: function(text) {
+				//alert(JSON.parse(text));
+				//console.log(JSON.parse(text));
+				if(text['status'])
+				{
+					window.location = "../../dashboard";
+				}
+				else
+				{
+					alert('Error while deleting.Please try again later');
+				}
 			},
-			error: function() {
-				alert('failure');
+			error: function(text) {
+				alert('Error while deleting.Please try again later');
 			}
 		});
 	}
