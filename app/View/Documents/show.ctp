@@ -8,11 +8,11 @@
       </div>
 
       <div class="row">
-        <div class="col-md-1"><?php echo $this->Html->image('profile_new.png',array('alt'=>'Profile Picture')); ?></div>
+        <div class="col-md-1"><?php echo $this->Html->image('profile_new.png', array('alt' => 'Profile Picture')); ?></div>
         <div class="col-md-3"><h5><?php echo $name; ?></h5><h5>ABC Pvt. Ltd.</h5><h6></h6></div>
         <div class="col-md-8 text-right">
-          <?php $link=$this->Upload->uploadUrl($docudata, 'Document.avatar' , array('urlize' =>'true'));?>
-          <a href="<?php echo $link; ?>">Download</a> | <?php echo $this->Html->link('Trail', array('controller'=>'documents','action'=>'trail',$docudata['Document']['id'])); ?>
+          <?php $link = $this->Upload->uploadUrl($docudata, 'Document.avatar', array('urlize' => 'true'));?>
+          <a href="<?php echo $link; ?>">Download</a> | <?php echo $this->Html->link('Trail', array('controller' => 'documents', 'action' => 'trail', $docudata['Document']['id'])); ?>
         </div>
       </div>
 
@@ -22,20 +22,20 @@
         </div>
       </div>
 
-      <?php if($userid === $docudata['Document']['ownerid'])
-            {
-              echo '<div class="row top-buffer">';
-              echo '<div class="col-md-12 text-center">';
-              echo $this->Html->link('Edit', array('controller'=>'documents','action'=>'edit',$docudata['Document']['id']),array('class'=>'btn btn-warning '));
-              echo '<button type="button" class="btn btn-danger" id="delete">Delete</button>';
-              echo '</div>';
-              echo '</div>';
-            }
+      <?php if ($userid === $docudata['Document']['ownerid']) {
+    echo '<div class="row top-buffer">';
+    echo '<div class="col-md-12 text-center">';
+    echo $this->Html->link('Edit', array('controller' => 'documents', 'action' => 'edit', $docudata['Document']['id']), array('class' => 'btn btn-warning '));
+    echo '<button type="button" class="btn btn-danger" id="delete">Delete</button>';
+    echo '</div>';
+    echo '</div>';
+}
             ?>
 
       <hr>
     </div>
 
+    <?php if ($userid === $docudata['Document']['ownerid']): ?>
     <div class="modal fade" id="modal_delete" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -60,7 +60,11 @@
         </div>
       </div>
     </div>
+  <?php endif;?>
+
 
     <?php echo $this->Html->script('jquery-1.11.1.min.js');
-    echo $this->Html->script('bootstrap.min.js');
-    echo $this->Html->script('show_document.js');?>
+          echo $this->Html->script('bootstrap.min.js');
+    if ($userid === $docudata['Document']['ownerid']) {
+        echo $this->Html->script('show_document.js');
+    }?>
