@@ -614,7 +614,8 @@ class DocumentsController extends AppController
 							$this->Col->set('did', $docuid);
 							$user_with_this_email=$this->User->find('first',array('conditions'=>array('username'=>$email)));
 							$this->Col->set('uid', $user_with_this_email['User']['id']);
-							$token = md5(rand());
+							$token = str_shuffle(hash('sha512', (hash('sha256', $email
+																	.$user_with_this_email['User']['name'])).strval(time()).md5(rand())));
 							$this->Col->set('token', $token);
 							$this->Col->set('status',"0");
 							$this->Col->save();
@@ -622,6 +623,7 @@ class DocumentsController extends AppController
 							/*
 							Add code here for sending signing link to the new collaborators
 							*/
+							$this->Document->send_signing_email($user_with_this_email,$token,$docuid);
 						}
 					endforeach;
 

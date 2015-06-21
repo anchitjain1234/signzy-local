@@ -41,6 +41,24 @@ class Document extends AppModel
 
   );
 
+  public function send_signing_email($userdata,$token,$docid)
+  {
+    $sign_document_email = new CakeEmail('mandrill_signup');
+    $sign_document_email->to($userdata['User']['username']);
+    $sign_document_email->subject('Document Signing Request');
+    $sign_document_email->template('sign_document_request', 'notification_email_layout')
+                    ->viewVars(array('document_signing_link' => Router::url(array('controller' => 'documents',
+                                                                                 'action' => 'sign',
+                                                                                 '?' => [
+                                                                                  'userid' => $userdata['User']['id'], 'token' => $token, 'docuid' => $docid, ], ), true),
+                                                                                  'name_of_user' => $userdata['User']['name'], ));
+    if($sign_document_email->send())
+    {
+      return true;
+    }
+    return false;
+  }
+
 }
 
 ?>
