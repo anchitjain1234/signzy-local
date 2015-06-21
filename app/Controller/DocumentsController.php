@@ -16,12 +16,12 @@ class DocumentsController extends AppController
 				To give the name ofthe user to the layout befire the view is loaded.
 				*/
 
-		$this->loadModel('User');
+				$this->loadModel('User');
 				$uid = CakeSession::read('Auth.User.id');
 				$params = array(
-			'fields' => array('name','username'),
-			'conditions' => array('id' => $uid),
-		);
+					'fields' => array('name','username'),
+					'conditions' => array('id' => $uid),
+				);
 				$userdata = $this->User->find('first', $params);
 				$this->set('name', $userdata['User']['name']);
 				$this->set('useremail', $userdata['User']['username']);
@@ -33,25 +33,25 @@ class DocumentsController extends AppController
 		public function index()
 		{
 				/*
-		To display all the previous uploaded documents of the user as well as the documents in which the
-		user id requested to sign it.
-		*/
+				To display all the previous uploaded documents of the user as well as the documents in which the
+				user id requested to sign it.
+				*/
 
-		$uid = CakeSession::read('Auth.User.id');
-				$parameters = array(
-			'fields' => array('id','avatar_file_name','name','created','status'),
-			'conditions' => array('ownerid' => $uid),
-		);
+				$uid = CakeSession::read('Auth.User.id');
+						$parameters = array(
+					'fields' => array('id','avatar_file_name','name','created','status'),
+					'conditions' => array('ownerid' => $uid),
+				);
 				$user_documents_data = $this->Document->find('all', $parameters);
 
-		/*
-		Now finding documents in which user is a collabarator
-		*/
-		$this->loadModel('Col');
-				$parameters = array(
-			'fields' => array('did'),
-			'conditions' => array('uid' => $uid),
-		);
+				/*
+				Now finding documents in which user is a collabarator
+				*/
+				$this->loadModel('Col');
+						$parameters = array(
+					'fields' => array('did'),
+					'conditions' => array('uid' => $uid),
+				);
 				$coldata = $this->Col->find('all', $parameters);
 				if ($coldata) {
 						foreach ($coldata as $col):
@@ -380,9 +380,21 @@ class DocumentsController extends AppController
 
 				$params = array(
 				'conditions' => array('did' => $id),
-			);
-				$this->set('coldata', $this->Col->find('all', $params));
-				$this->set('docudata', $document);
+				);
+				$cols= $this->Col->find('all',$params);
+
+				if($cols)
+				{
+					$userids =array();
+					foreach($cols as $col):
+						array_push($userids,array('_id' => new MongoId($col['Col']['uid'])));
+					endforeach;
+
+					$this->loadModel('User');
+					$cols = $this->User->find('all',array('conditions'=>array('$or'=>$userids)));
+
+					$this->Set('cols',$cols);
+				}
 		}
 
 
@@ -403,28 +415,260 @@ class DocumentsController extends AppController
 								throw new NotFoundException(__('Invalid Document'));
 						}
 
-						$this->loadModel('Col');
-
 						/*
-						This object will contain the reuslt of deleting the document
+						Checking whehter the request generator is owner of the document or not.
 						*/
-						$status_object = new ArrayObject(array(), ArrayObject::STD_PROP_LIST);
+						if($document['Document']['ownerid'] === CakeSession::read('Auth.User.id'))
+						{
+							$this->loadModel('Col');
 
-						if ($this->Col->deleteAll(array('did' => $id), false)) {
-								if ($this->Document->delete($id)) {
-										$status_object->status = true;
-										$this->Session->setFlash(__('Document deleted successfully.'),'flash_success');
-								} else {
-										$status_object->status = false;
-										$this->Session->setFlash(__('Document could not be deleted.Please try again later'),'flash_error');
-								}
-						} else {
-								$this->Session->setFlash(__('Document could not be deleted.Please try again later'),'flash_error');
-								$status_object->status = false;
+							/*
+							This object will contain the reuslt of deleting the document
+							*/
+							$status_object = new ArrayObject(array(), ArrayObject::STD_PROP_LIST);
+
+							/*
+							First delete from the collabarators table so that even if query fails in between
+							we would be having original document saved.
+							*/
+							if ($this->Col->deleteAll(array('did' => $id), false)) {
+									if ($this->Document->delete($id)) {
+											$status_object->status = true;
+											$this->Session->setFlash(__('Document deleted successfully.'),'flash_success');
+									} else {
+											$status_object->status = false;
+											$this->Session->setFlash(__('Document could not be deleted.Please try again later'),'flash_error');
+									}
+							} else {
+									$this->Session->setFlash(__('Document could not be deleted.Please try again later'),'flash_error');
+									$status_object->status = false;
+							}
 						}
-
+						else
+						{
+							$this->Session->setFlash(__('You are not authorised for this request.'),'flash_error');
+							$status_object->status = false;
+						}
 						$this->set(compact('status_object'));
 						$this->set('_serialize', 'status_object');
 				}
+		}
+
+
+
+		public function edit($id = null)
+		{
+			if (!$id) {
+					throw new NotFoundException(__('Invalid Document'));
+			}
+			$document = $this->Document->findById($id);
+
+			if (!$document) {
+					throw new NotFoundException(__('Invalid Document'));
+			}
+
+			$this->loadModel('Col');
+			$cols= $this->Col->find('all',array('conditions'=>array('did'=>$document['Document']['id'])));
+
+			if($cols)
+			{
+				$userids =array();
+				foreach($cols as $col):
+					array_push($userids,array('_id' => new MongoId($col['Col']['uid'])));
+				endforeach;
+
+				$this->loadModel('User');
+				$cols = $this->User->find('all',array('conditions'=>array('$or'=>$userids),'fields'=>array('name','username')));
+
+				$this->Set('cols',$cols);
+			}
+
+			$this->set('docudata',$document);
+
+		}
+
+
+
+		public function change_document()
+		{
+			$status_object = new ArrayObject(array(), ArrayObject::STD_PROP_LIST);
+			if($this->request->is('post'))
+			{
+				if(isset($this->request->data['newname']))
+				{
+					/*
+					Making the default status of name change to be false so that if there is some problem in
+					completing the transaction completely status would be false
+					*/
+					$status_object->name = false;
+					$newname = $this->request->data['newname'];
+				}
+				$emails = json_decode($this->request->data['emails']);
+				$docuid = $this->request->data['docuid'];
+
+				/*
+				Changing the name of document if its changed
+				*/
+				if(isset($newname))
+				{
+					$this->Document->id = $docuid;
+					$this->Document->set('name',$newname);
+					$this->Document->save();
+					$status_object->name = true;
+				}
+
+				$this->loadModel('Col');
+				/*
+				Getting all collabarators data
+				*/
+				$cols= $this->Col->find('all',array('conditions'=>array('did'=>$docuid)));
+
+				/*
+				If collaborators of the document exists
+				*/
+				if($cols)
+				{
+					/*
+					userids will have ids of all the collabarators
+					*/
+					$userids =array();
+					foreach($cols as $col):
+						array_push($userids,array('_id' => new MongoId($col['Col']['uid'])));
+					endforeach;
+
+					/*
+					Pushing emails of all the collabarators in colemails
+					*/
+					$this->loadModel('User');
+					$cols = $this->User->find('all',array('conditions'=>array('$or'=>$userids),'fields'=>array('username')));
+					$colemails=[];
+					foreach($cols as $col):
+						array_push($colemails, $col['User']['username']);
+					endforeach;
+				}
+
+				/*
+				Checking if there is any difference between previous collaborators data and new collaborators data
+				sent by user.
+				*/
+				if(isset($emails) && count($emails)>0)
+				{
+					$temp_array = $emails;
+				}
+				else
+				{
+					$temp_array = $colemails;
+				}
+
+				if(isset($colemails))
+				{
+					array_diff($temp_array, $colemails);
+				}
+				else
+				{
+					array_diff($temp_array, $emails);
+				}
+				if($temp_array)
+				{
+					/*
+					Default status of cols change
+					*/
+					$status_object->cols = false;
+					/*
+					To edit signatories we will first compare colemails with emails to find common emails and remove
+					them from both the arrays.
+					These emails would already be present in cols table so no need to edit them.
+					Now colemails would be having emails of collabarators which are to be removed from the cols table i.e
+					user has removed these collabarators.
+					emails will be having emails of the new signatories i.e new signatories added by the user.
+					*/
+
+					/*
+					Checking if all the emails are valid i.e. user is not tampering with data otherwise keep
+					user in risky category because the user is trying to hack.
+					*/
+					foreach($emails as $email):
+						if (!Validation::email($email)) {
+							$status_object->cols = false;
+						}
+					endforeach;
+
+					foreach($emails as $email):
+						if(isset($colemails) && in_array($email, $colemails))
+						{
+							/*
+							Removing common emails from both the arrays
+							*/
+							$ind_in_emails=array_search($email, $emails);
+							$ind_in_colemails = array_search($email, $colemails);
+							array_splice($emails, $ind_in_emails,1);
+
+							array_splice($colemails, $ind_in_colemails,1);
+						}
+						else
+						{
+							/*
+							Adding uncommon emails into the cols table
+							*/
+							$this->Col->create();
+							$this->Col->set('did', $docuid);
+							$user_with_this_email=$this->User->find('first',array('conditions'=>array('username'=>$email)));
+							$this->Col->set('uid', $user_with_this_email['User']['id']);
+							$token = md5(rand());
+							$this->Col->set('token', $token);
+							$this->Col->set('status',"0");
+							$this->Col->save();
+
+							/*
+							Add code here for sending signing link to the new collaborators
+							*/
+						}
+					endforeach;
+
+					/*
+					If some emails remain the colemails array
+					*/
+					if(isset($colemails) && count($colemails) > 0)
+					{
+						/*
+						Delete the collaborators having emails remaining in colemails.
+						*/
+						$cols_to_be_removed_ids = array();
+						$cols_to_be_removed_emails = array();
+
+						foreach($colemails as $colemail):
+							array_push($cols_to_be_removed_emails,array('username' => $colemail));
+						endforeach;
+
+						$params = array(
+							'conditions' => array('$or'=>$cols_to_be_removed_emails),
+							'fields' => array('id')
+						);
+
+						$user_ids=$this->User->find('all',$params);
+
+						foreach($user_ids as $user_id):
+							array_push($cols_to_be_removed_ids, array('uid' => $user_id['User']['id']));
+						endforeach;
+
+						$id_in_cols_table=$this->Col->find('all',array('conditions'=>array('$or'=>$cols_to_be_removed_ids,'did'=>$docuid)));
+
+						foreach($id_in_cols_table as $id):
+							$this->Col->delete($id['Col']['id']);
+						endforeach;
+					}
+					$status_object->cols = true;
+				}
+				$status_object->status = true;
+				$this->Session->setFlash(__('Data saved successfully.'),'flash_success');
+			}
+			else
+			{
+				$this->Session->setFlash(__('Wrong request.'),'flash_error');
+				$status_object->status = false;
+			}
+
+			$this->set(compact('status_object'));
+			$this->set('_serialize', 'status_object');
 		}
 }

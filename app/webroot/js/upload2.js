@@ -35,7 +35,6 @@
 			if (jQuery.inArray(email_entered, emails) == -1) {
 				emails.push(email_entered);
 				emails_json = JSON.stringify(emails);
-				console.log(emails_json);
 
 				var str1 = "<li class='list-group-item'>";
 				var str2 = " (";
