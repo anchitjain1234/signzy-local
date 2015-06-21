@@ -375,11 +375,12 @@ class DocumentsController extends AppController
 
 				$this->loadModel('User');
 				$this->set('ownerdata', $this->User->findById($document['Document']['ownerid']));
-
+				$this->set('docudata',$document);
 				$this->loadModel('Col');
 
 				$params = array(
 				'conditions' => array('did' => $id),
+				'order' => array('modified' => -1)
 				);
 				$cols= $this->Col->find('all',$params);
 
@@ -391,9 +392,10 @@ class DocumentsController extends AppController
 					endforeach;
 
 					$this->loadModel('User');
-					$cols = $this->User->find('all',array('conditions'=>array('$or'=>$userids)));
+					$cols_user_data = $this->User->find('all',array('conditions'=>array('$or'=>$userids)));
 
-					$this->Set('cols',$cols);
+					$this->set('cols_user_data',$cols_user_data);
+					$this->set('col_Data',$cols);
 				}
 		}
 
