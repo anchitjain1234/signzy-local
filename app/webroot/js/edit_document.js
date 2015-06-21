@@ -1,7 +1,7 @@
 (function($) {
-  var newname
+  var newname;
   var name_selected;
-	var email_entered;
+  var email_entered;
   var emails = [];
   var current_emails = $('#signatory_holder li a');
   current_emails.each(function(index)
@@ -38,9 +38,9 @@
 		email_entered = $('#email_search').val();
 
 		if (email_entered === useremail) {
-			alert("You cant add yourself into signatory.")
+			alert("You cant add yourself into signatory.");
 		} else {
-			if (jQuery.inArray(email_entered, emails) == -1) {
+			if (jQuery.inArray(email_entered, emails) === -1) {
 				emails.push(email_entered);
 				emails_json = JSON.stringify(emails);
 
@@ -120,7 +120,7 @@
     }).error(function(res){
       alert('Error while saving data.Please try again later');
     });
-  }
+  };
 
   $('#change_document').click($.submit_document_changes);
 })(jQuery);

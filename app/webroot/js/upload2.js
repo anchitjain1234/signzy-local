@@ -30,9 +30,9 @@
 		email_entered = $('#email_search').val();
 
 		if (email_entered === useremail) {
-			alert("You cant add yourself into signatory.")
+			alert("You cant add yourself into signatory.");
 		} else {
-			if (jQuery.inArray(email_entered, emails) == -1) {
+			if (jQuery.inArray(email_entered, emails) === -1) {
 				emails.push(email_entered);
 				emails_json = JSON.stringify(emails);
 
@@ -66,7 +66,7 @@
 				alert('Email address already entered.');
 			}
 		}
-	}
+	};
 
 	$('#add_button').click($.email_uniqueness_check);
 	/*
@@ -95,5 +95,5 @@
 
 	$('#submitform').click(function() {
 		$('#emails_hidden').val(emails_json);
-	})
+	});
 })(jQuery);

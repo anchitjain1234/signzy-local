@@ -12,7 +12,7 @@ $(function() {
 		} else {
 			$("#delete_delete").attr('disabled', 'disabled');
 		}
-	}
+	};
 
 	$.send_delete_request = function() {
 		$.ajax({
@@ -37,7 +37,7 @@ $(function() {
 				alert('Error while deleting.Please try again later');
 			}
 		});
-	}
+	};
 
 
 
