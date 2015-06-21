@@ -35,7 +35,6 @@ class ColController extends AppController
 
         $this->set(compact('userNames'));
         $this->set('_serialize', 'userNames');
-        $this->log($userNames);
       }
   }
 
