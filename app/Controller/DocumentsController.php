@@ -368,7 +368,7 @@ class DocumentsController extends AppController {
             'order' => array('modified' => -1)
         );
         $cols = $this->Col->find('all', $params);
-
+        
         if ($cols) {
             $userids = array();
             foreach ($cols as $col):
@@ -377,9 +377,20 @@ class DocumentsController extends AppController {
 
             $this->loadModel('User');
             $cols_user_data = $this->User->find('all', array('conditions' => array('$or' => $userids)));
-
             $this->set('cols_user_data', $cols_user_data);
-            $this->set('col_Data', $cols);
+            
+            $id_corresponding_to_name = array();
+            foreach($cols as $col):
+                foreach($cols_user_data as $col_user_data):
+                    if($col_user_data['User']['id'] === $col['Col']['uid'])
+                    {
+                        $id_corresponding_to_name[$col['Col']['uid']] = $col_user_data['User']['name'];
+                    }
+                endforeach;
+            endforeach;
+            
+            $this->set('id_corresponding_to_name',$id_corresponding_to_name);
+            $this->set('col_data', $cols);
         }
     }
 
@@ -464,6 +475,12 @@ class DocumentsController extends AppController {
 
     public function change_document() {
         $status_object = new ArrayObject(array(), ArrayObject::STD_PROP_LIST);
+        /*
+         * This flag would be used to check whether we need to change the status of document
+         * after addign new new collabarotrs or not.
+         */
+        $flag_for_changing_document_status =0 ;
+        
         if ($this->request->is('post')) {
             if (isset($this->request->data['newname'])) {
                 /*
@@ -542,6 +559,10 @@ class DocumentsController extends AppController {
                   Now colemails would be having emails of collabarators which are to be removed from the cols table i.e
                   user has removed these collabarators.
                   emails will be having emails of the new signatories i.e new signatories added by the user.
+                 * 
+                 * In the end if any new signatories are added or some existing ones are removed we will change the status
+                 * of the original document to pending and will again send the signing email to all the 
+                 * collabarators.
                  */
 
                 /*
@@ -565,6 +586,7 @@ class DocumentsController extends AppController {
 
                         array_splice($colemails, $ind_in_colemails, 1);
                     } else {
+                        $flag_for_changing_document_status = 1;
                         /*
                           Adding uncommon emails into the cols table
                          */
@@ -589,6 +611,7 @@ class DocumentsController extends AppController {
                   If some emails remain the colemails array
                  */
                 if (isset($colemails) && count($colemails) > 0) {
+                    $flag_for_changing_document_status = 1;
                     /*
                       Delete the collaborators having emails remaining in colemails.
                      */
@@ -615,6 +638,16 @@ class DocumentsController extends AppController {
                     foreach ($id_in_cols_table as $id):
                         $this->Col->delete($id['Col']['id']);
                     endforeach;
+                }
+                if($flag_for_changing_document_status === 1)
+                {
+                    /*
+                     * Change status of document to pending as some new collabarators have been
+                     * added or some had been removed.
+                     */
+                    $this->Document->id = $docuid;
+                    $this->Document->set('status', "0");
+                    $this->Document->save();
                 }
                 $status_object->cols = true;
             }
