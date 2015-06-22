@@ -26,7 +26,10 @@ class DocumentsController extends AppController {
         $this->set('useremail', $userdata['User']['username']);
         $this->set('userid', $uid);
     }
-
+    
+    /*
+     * It shows all the documents in which current logged in user is involved.
+     */
     public function index() {
         /*
           To display all the previous uploaded documents of the user as well as the documents in which the
@@ -168,7 +171,10 @@ class DocumentsController extends AppController {
             }
         }
     }
-
+    
+    /*
+     * It signs the document.
+     */
     public function sign() {
         if ($this->request->is('get')) {
             /*
@@ -218,7 +224,7 @@ class DocumentsController extends AppController {
                 $this->set('document', $this->Document->findById($docuid));
                 $this->render();
                 /*
-                  Add code here to change the token so that the URL is no longer valid
+                 * Add code here to change the token so that the URL is no longer valid
                  */
             } else {
                 $this->Session->setFlash(__('Invalid Request.Please ask the document owner to resend you the signing email
@@ -230,8 +236,8 @@ class DocumentsController extends AppController {
 
         if ($this->request->is('post')) {
             /*
-              Storing these values in variables as data would be unset so that these fields dont get saved while
-              updating the col and document tables
+             * Storing these values in variables as data would be unset so that these fields dont get saved while
+             * updating the col and document tables
              */
             $status = $this->request->data['status'];
             $docuid = $this->request->data['docuid'];
@@ -247,13 +253,13 @@ class DocumentsController extends AppController {
             $coldata = $this->Col->find('first', $parameters);
 
             /*
-              Set the col id so that it can be updated
+             * Set the col id so that it can be updated
              */
             $this->Col->id = $coldata['Col']['id'];
             $this->Col->set('status', $userdata['User']['id']);
 
             /*
-              Unset these variables so that they dont get saved in the databse.
+             * Unset these variables so that they dont get saved in the databse.
              */
             unset($this->request->data['userid']);
             unset($this->request->data['docuid']);
@@ -261,8 +267,8 @@ class DocumentsController extends AppController {
             if ($this->Col->save($this->request->data)) {
                 $total_collabarators = $this->Col->find('count', array('conditions' => array('did' => $docuid)));
                 /*
-                  See here if he document has to be rejected even if one user rejects it or not,
-                  Checking if current user voided or rejected the document
+                 * See here if he document has to be rejected even if one user rejects it or not,
+                 * Checking if current user voided or rejected the document
                  */
                 if ($status === '2' || $status === '3') {
                     /*
@@ -273,10 +279,10 @@ class DocumentsController extends AppController {
                     $this->Document->save();
                 }
                 /*
-                  Checking if current user signed the document.
+                 * Checking if current user signed the document.
                  */ elseif ($status === '1') {
                     /*
-                      If all the signatories sign the document than only document will have status complete i.e. 1
+                     * If all the signatories sign the document than only document will have status complete i.e. 1
                      */
                     $parameters = array(
                         'conditions' => array(
@@ -287,7 +293,7 @@ class DocumentsController extends AppController {
                     $collabarators_with_completed_status = $this->Col->find('count', $parameters);
 
                     /*
-                      Checking if document signing has been completed or not.
+                     * Checking if document signing has been completed or not.
                      */
                     if ($collabarators_with_completed_status === $total_collabarators) {
                         $this->Document->id = $docuid;
@@ -297,10 +303,10 @@ class DocumentsController extends AppController {
                 }
 
                 /*
-                  Sending the notification email to the owner that there has been some changes in document.
-                  Letting him to know to visit the dashboard
-                  Will add the option in future to disable email alert for every status update.
-                  Also include here to send the emails to all the other collabarators also to notify them of the change.
+                 * Sending the notification email to the owner that there has been some changes in document.
+                 * Letting him to know to visit the dashboard
+                 * Will add the option in future to disable email alert for every status update.
+                 * Also include here to send the emails to all the other collabarators also to notify them of the change.
                  */
                 $parameters = array(
                     'conditions' => array(
@@ -336,6 +342,11 @@ class DocumentsController extends AppController {
         }
     }
 
+    /*
+     * This function shows the document , download and trail options and 
+     * if user is owner of document than edit and delete options also.
+     */
+
     public function show($id = null) {
         if (!$id) {
             throw new NotFoundException(__('Invalid Document'));
@@ -347,6 +358,12 @@ class DocumentsController extends AppController {
         }
         $this->set('docudata', $document);
     }
+
+    /*
+     * It shows the document trail which contains the history of activities on document.
+     * Cureently we need to implement status of name change as well as signatory change.
+     * If user changes his sign later on we also need to show that in trail.
+     */
 
     public function trail($id = null) {
         if (!$id) {
@@ -368,7 +385,7 @@ class DocumentsController extends AppController {
             'order' => array('modified' => -1)
         );
         $cols = $this->Col->find('all', $params);
-        
+
         if ($cols) {
             $userids = array();
             foreach ($cols as $col):
@@ -378,21 +395,26 @@ class DocumentsController extends AppController {
             $this->loadModel('User');
             $cols_user_data = $this->User->find('all', array('conditions' => array('$or' => $userids)));
             $this->set('cols_user_data', $cols_user_data);
-            
+
             $id_corresponding_to_name = array();
-            foreach($cols as $col):
-                foreach($cols_user_data as $col_user_data):
-                    if($col_user_data['User']['id'] === $col['Col']['uid'])
-                    {
+            foreach ($cols as $col):
+                foreach ($cols_user_data as $col_user_data):
+                    if ($col_user_data['User']['id'] === $col['Col']['uid']) {
                         $id_corresponding_to_name[$col['Col']['uid']] = $col_user_data['User']['name'];
                     }
                 endforeach;
             endforeach;
-            
-            $this->set('id_corresponding_to_name',$id_corresponding_to_name);
+
+            $this->set('id_corresponding_to_name', $id_corresponding_to_name);
             $this->set('col_data', $cols);
         }
     }
+
+    /*
+     * It deletes the document.
+     * If document owner sends the delete request through ajax post than it responds
+     * by a JSON object haivng status of deletion.
+     */
 
     public function delete() {
         if ($this->request->is('post')) {
@@ -410,19 +432,19 @@ class DocumentsController extends AppController {
             }
 
             /*
-              Checking whehter the request generator is owner of the document or not.
+             * Checking whehter the request generator is owner of the document or not.
              */
             if ($document['Document']['ownerid'] === CakeSession::read('Auth.User.id')) {
                 $this->loadModel('Col');
 
                 /*
-                  This object will contain the reuslt of deleting the document
+                 * This object will contain the reuslt of deleting the document
                  */
                 $status_object = new ArrayObject(array(), ArrayObject::STD_PROP_LIST);
 
                 /*
-                  First delete from the collabarators table so that even if query fails in between
-                  we would be having original document saved.
+                 * First delete from the collabarators table so that even if query fails in between
+                 * we would be having original document saved.
                  */
                 if ($this->Col->deleteAll(array('did' => $id), false)) {
                     if ($this->Document->delete($id)) {
@@ -445,6 +467,10 @@ class DocumentsController extends AppController {
         }
     }
 
+    /*
+     * Shows the edit page to the document owner.
+     */
+
     public function edit($id = null) {
         if (!$id) {
             throw new NotFoundException(__('Invalid Document'));
@@ -454,38 +480,47 @@ class DocumentsController extends AppController {
         if (!$document) {
             throw new NotFoundException(__('Invalid Document'));
         }
+        
+        /*
+         * Checking if request sender is document owner or not.
+         */
+        if ($document['Document']['ownerid'] === CakeSession::read('Auth.User.id')) {
+            $this->loadModel('Col');
+            $cols = $this->Col->find('all', array('conditions' => array('did' => $document['Document']['id'])));
 
-        $this->loadModel('Col');
-        $cols = $this->Col->find('all', array('conditions' => array('did' => $document['Document']['id'])));
+            if ($cols) {
+                $userids = array();
+                foreach ($cols as $col):
+                    array_push($userids, array('_id' => new MongoId($col['Col']['uid'])));
+                endforeach;
 
-        if ($cols) {
-            $userids = array();
-            foreach ($cols as $col):
-                array_push($userids, array('_id' => new MongoId($col['Col']['uid'])));
-            endforeach;
+                $this->loadModel('User');
+                $cols = $this->User->find('all', array('conditions' => array('$or' => $userids), 'fields' => array('name', 'username')));
 
-            $this->loadModel('User');
-            $cols = $this->User->find('all', array('conditions' => array('$or' => $userids), 'fields' => array('name', 'username')));
+                $this->Set('cols', $cols);
+            }
 
-            $this->Set('cols', $cols);
+            $this->set('docudata', $document);
         }
-
-        $this->set('docudata', $document);
     }
-
+    
+    /*
+     * Used for changing document name and signatories.
+     * AJAX request from edit page will be sent here.
+     */
     public function change_document() {
         $status_object = new ArrayObject(array(), ArrayObject::STD_PROP_LIST);
         /*
          * This flag would be used to check whether we need to change the status of document
          * after addign new new collabarotrs or not.
          */
-        $flag_for_changing_document_status =0 ;
-        
+        $flag_for_changing_document_status = 0;
+
         if ($this->request->is('post')) {
             if (isset($this->request->data['newname'])) {
                 /*
-                  Making the default status of name change to be false so that if there is some problem in
-                  completing the transaction completely status would be false
+                 * Making the default status of name change to be false so that if there is some problem in
+                 * completing the transaction completely status would be false
                  */
                 $status_object->name = false;
                 $newname = $this->request->data['newname'];
@@ -494,7 +529,7 @@ class DocumentsController extends AppController {
             $docuid = $this->request->data['docuid'];
 
             /*
-              Changing the name of document if its changed
+             * Changing the name of document if its changed
              */
             if (isset($newname)) {
                 $this->Document->id = $docuid;
@@ -505,16 +540,16 @@ class DocumentsController extends AppController {
 
             $this->loadModel('Col');
             /*
-              Getting all collabarators data
+             * Getting all collabarators data
              */
             $cols = $this->Col->find('all', array('conditions' => array('did' => $docuid)));
 
             /*
-              If collaborators of the document exists
+             * If collaborators of the document exists
              */
             if ($cols) {
                 /*
-                  userids will have ids of all the collabarators
+                 * userids will have ids of all the collabarators
                  */
                 $userids = array();
                 foreach ($cols as $col):
@@ -522,7 +557,7 @@ class DocumentsController extends AppController {
                 endforeach;
 
                 /*
-                  Pushing emails of all the collabarators in colemails
+                 * Pushing emails of all the collabarators in colemails
                  */
                 $this->loadModel('User');
                 $cols = $this->User->find('all', array('conditions' => array('$or' => $userids), 'fields' => array('username')));
@@ -533,8 +568,8 @@ class DocumentsController extends AppController {
             }
 
             /*
-              Checking if there is any difference between previous collaborators data and new collaborators data
-              sent by user.
+             * Checking if there is any difference between previous collaborators data and new collaborators data
+             * sent by user.
              */
             if (isset($emails) && count($emails) > 0) {
                 $temp_array = $emails;
@@ -549,16 +584,16 @@ class DocumentsController extends AppController {
             }
             if ($temp_array) {
                 /*
-                  Default status of cols change
+                 * Default status of cols change
                  */
                 $status_object->cols = false;
                 /*
-                  To edit signatories we will first compare colemails with emails to find common emails and remove
-                  them from both the arrays.
-                  These emails would already be present in cols table so no need to edit them.
-                  Now colemails would be having emails of collabarators which are to be removed from the cols table i.e
-                  user has removed these collabarators.
-                  emails will be having emails of the new signatories i.e new signatories added by the user.
+                 * To edit signatories we will first compare colemails with emails to find common emails and remove
+                 * them from both the arrays.
+                 * These emails would already be present in cols table so no need to edit them.
+                 * Now colemails would be having emails of collabarators which are to be removed from the cols table i.e
+                 * user has removed these collabarators.
+                 * emails will be having emails of the new signatories i.e new signatories added by the user.
                  * 
                  * In the end if any new signatories are added or some existing ones are removed we will change the status
                  * of the original document to pending and will again send the signing email to all the 
@@ -566,8 +601,8 @@ class DocumentsController extends AppController {
                  */
 
                 /*
-                  Checking if all the emails are valid i.e. user is not tampering with data otherwise keep
-                  user in risky category because the user is trying to hack.
+                 * Checking if all the emails are valid i.e. user is not tampering with data otherwise keep
+                 * user in risky category because the user is trying to hack.
                  */
                 foreach ($emails as $email):
                     if (!Validation::email($email)) {
@@ -639,8 +674,7 @@ class DocumentsController extends AppController {
                         $this->Col->delete($id['Col']['id']);
                     endforeach;
                 }
-                if($flag_for_changing_document_status === 1)
-                {
+                if ($flag_for_changing_document_status === 1) {
                     /*
                      * Change status of document to pending as some new collabarators have been
                      * added or some had been removed.
@@ -653,8 +687,7 @@ class DocumentsController extends AppController {
             }
             $status_object->status = true;
             $this->Session->setFlash(__('Data saved successfully.'), 'flash_success');
-        }
-        else {
+        } else {
             $this->Session->setFlash(__('Wrong request.'), 'flash_error');
             $status_object->status = false;
         }
