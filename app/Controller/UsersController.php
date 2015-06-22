@@ -130,7 +130,6 @@ class UsersController extends AppController {
     /*
       Email verification after signup
      */
-
     public function verify() {
         /*
           Checking if get variables for token and username are present in url
@@ -215,7 +214,6 @@ class UsersController extends AppController {
     /*
       This function is used for checking email address and sending change password email to user.
      */
-
     public function forgot() {
         $this->layout = 'mainlayout';
 
@@ -354,13 +352,6 @@ class UsersController extends AppController {
         } else {
             throw new NotFoundException(__('Invalid URL'));
         }
-    }
-
-    public function email_test() {
-        $this->layout = 'Emails/html/main_layout_email';
-        $this->set('email_verification_link', 'afsdfsdf');
-
-        return $this->render('/Emails/html/signupemail');
     }
 
 }
