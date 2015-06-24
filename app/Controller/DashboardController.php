@@ -34,7 +34,7 @@ class DashboardController extends AppController
     );
     $userdata=$this->User->find('first',$params);
 
-    if($userdata['User']['verified'] === 0)
+    if($userdata['User']['verified'] === Configure::read('user_not_verified'))
     {
       //$this->Auth->logout();
       /*
@@ -49,22 +49,22 @@ class DashboardController extends AppController
     */
     $this->loadModel('Document');
     $params = array(
-      'conditions' => array('ownerid' => CakeSession::read("Auth.User.id"),'status' => "0"),
+      'conditions' => array('ownerid' => CakeSession::read("Auth.User.id"),'status' => Configure::read('doc_pending')),
     );
     $pendingcount = $this->Document->find('count',$params);
 
     $params = array(
-      'conditions' => array('ownerid' => CakeSession::read("Auth.User.id"),'status' => "1"),
+      'conditions' => array('ownerid' => CakeSession::read("Auth.User.id"),'status' => Configure::read('doc_completed')),
     );
     $completedcount = $this->Document->find('count',$params);
 
     $params = array(
-      'conditions' => array('ownerid' => CakeSession::read("Auth.User.id"),'status' => "2"),
+      'conditions' => array('ownerid' => CakeSession::read("Auth.User.id"),'status' => Configure::read('doc_void')),
     );
     $voidcount = $this->Document->find('count',$params);
 
     $params = array(
-      'conditions' => array('ownerid' => CakeSession::read("Auth.User.id"),'status' => "3"),
+      'conditions' => array('ownerid' => CakeSession::read("Auth.User.id"),'status' => Configure::read('doc_rejected')),
     );
     $disputedcount = $this->Document->find('count',$params);
 
@@ -84,19 +84,19 @@ class DashboardController extends AppController
         );
         $docstatus  = $this->Document->find('first',$params);
 
-        if($docstatus['Document']['status'] === "0")
+        if($docstatus['Document']['status'] === Configure::read('doc_pending'))
         {
           $pendingcount += 1;
         }
-        elseif ($docstatus['Document']['status'] === "1")
+        elseif ($docstatus['Document']['status'] === Configure::read('doc_completed'))
         {
           $completedcount += 1;
         }
-        elseif ($docstatus['Document']['status'] === "2")
+        elseif ($docstatus['Document']['status'] === Configure::read('doc_void'))
         {
           $voidcount += 1;
         }
-        elseif ($docstatus['Document']['status'] === "3")
+        elseif ($docstatus['Document']['status'] === Configure::read('doc_rejected'))
         {
           $disputedcount += 1;
         }
