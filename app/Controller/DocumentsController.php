@@ -33,7 +33,6 @@ class DocumentsController extends AppController {
 
         $uid = CakeSession::read("Auth.User.id");
         $parameters = array(
-            'fields' => array('id', 'avatar_file_name', 'name', 'created', 'status'),
             'conditions' => array('ownerid' => $uid)
         );
         $user_documents_data = $this->Document->find('all', $parameters);
@@ -50,7 +49,6 @@ class DocumentsController extends AppController {
         if ($coldata) {
             foreach ($coldata as $col):
                 $parameters = array(
-                    'fields' => array('id', 'avatar_file_name', 'name', 'created', 'status'),
                     'conditions' => array('id' => $col['Col']['did'])
                 );
                 array_push($user_documents_data, $this->Document->find('first', $parameters));
@@ -462,10 +460,10 @@ class DocumentsController extends AppController {
                             'name_of_user' => $owner_data['User']['name']));
                 $document_change_email->send();
 
-                return $this->Session->setFlash(__('Your status updated successfully.
+                $this->Session->setFlash(__('Your status updated successfully.
                                     '), 'flash_success');
             } else {
-                return $this->Session->setFlash(__('Error while saving your data.Please try again later.
+                $this->Session->setFlash(__('Error while saving your data.Please try again later.
                                     '), 'flash_error');
             }
         }

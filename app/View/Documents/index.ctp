@@ -38,10 +38,11 @@
         <div class="col-md-12">
           <ul class="list-group">
             <?php foreach ($user_documents_data as $user_document): ?>
-              <?php echo "<li class=\"list-group-item\">";
+              <?php 
+              echo "<li class=\"list-group-item\">";
                     echo "<div class=\"row\">";
                     echo "<div class=\"col-md-8\"><input type=\"checkbox\" class=\"pull-left\" />&nbsp;";
-                    $url = Router::url('/', true).$this->Upload->uploadUrl($user_document,'Document.avatar' , array('urlize' =>false ));
+                    $url = Router::url('/', true)."uploads/".$user_document['Document']['originalname'];
 
                     echo '<a class="pull-left" href="'.$url.'">';
                     echo $user_document['Document']['name'];
