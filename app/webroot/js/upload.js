@@ -40,7 +40,7 @@ $(function () {
     
     // Initialize the jQuery File Upload plugin
     $('#droplink').fileupload({
-        url: "upload_ajax.json",
+        url: "upload_ajax",
         // This element will accept file drag/drop uploading
         dropZone: $('#drop'),
         // This function is called when a file is added to the queue;
@@ -55,18 +55,26 @@ $(function () {
                                           <strong>Error!</strong> Filetype not allowed.Please upload PDF,DOC or DOCX files only.");
                 
             }
+            else if(data.files[0].size>20000000)
+            {
+                $('#alertdiv').append("<div id=\"alert\"></div>");
+                $('#alert').addClass("alert alert-danger");
+                $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                                          <strong>Error!</strong> Filesize exceeds 20 MB.Please upload file less than 20 MB");
+            }
             else
             {
                 var tpl = $('<p>Uploading ...</p><br><li class="working"><input type="text" value="0" data-width="100" data-height="100"' +
                         ' data-fgColor="#0788a5" data-readOnly="1" data-bgColor="#3e4043" /></li>');
-
+                $('#senddoc').html("Uploading...");
+                $('#senddoc').attr('disabled', 'disabled');
                 // Append the file name and file size
 
                 // Add the HTML to the UL element
                 data.context = upload_preview.html(tpl);
                 fdata = '<p>' + data.files[0].name + '</p><i>' + formatFileSize(data.files[0].size) + '</i><span></span>\n\
                            <a id="remove_file"><span class="glyphicon glyphicon-remove"></span></a>';
-                console.log(fdata);
+                
                 // Initialize the knob plugin
                 tpl.find('input').knob();
 
@@ -98,6 +106,8 @@ $(function () {
             data.context.find('input').val(progress).change();
 
             if (progress === 100) {
+                $('#senddoc').html("Save");
+                $('#senddoc').removeAttr('disabled');
                 data.context.removeClass('working');
                 ul.show();
                 ul.html(fdata);
@@ -105,10 +115,10 @@ $(function () {
 
                 $('#remove_file').click(function () {
                     upload_preview.html("Your uploaded document will be shown here.");
-                    console.log('clicked');
+                    
                     $(this).parent().hide();
                     $('#droplink').show();
-                    console.log(data);
+                    
                 });
             }
         },
@@ -121,10 +131,12 @@ $(function () {
         },
         done: function (e, data) {
             var r = data.result;
-            r = JSON.parse(r);
+            
+            r=JSON.parse(r);
+            
             if (r["documentstatus"])
             {
-                console.log(r);
+                
                 doc_name = r["documentname"];
                 doc_org_name = r["documentoriginalname"];
                 doc_size = r["documentsize"];
@@ -187,7 +199,7 @@ $(function () {
             if (jQuery.inArray(email_entered, emails) === -1) {
                 emails.push(email_entered);
                 emails_json = JSON.stringify(emails);
-                console.log(emails_json);
+                
 
                 var str1 = "<li class='list-group-item'>";
                 var str2 = " (";
@@ -229,11 +241,13 @@ $(function () {
     });
 
     $('#senddoc').click(function () {
+        $('#senddoc').html("Saving Data and sending emails...");
+        $('#senddoc').attr('disabled', 'disabled');
         if (emails.length > 0)
         {
             $('#emails_hidden').val(emails_json);
             $.ajax({
-                url: "upload.json",
+                url: "upload",
                 method: "POST",
                 data: {"emails": emails_json, "name": $('#docname').val(), "doc_name": doc_name, "doc_org_name": doc_org_name, "doc_size": doc_size,
                     "doc_type" : doc_type}
@@ -262,10 +276,18 @@ $(function () {
                         $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
                                           <strong>Error!</strong> Unknown error.Please try again later.");
                     }
+                    $('#senddoc').html("Save");
+                    $('#senddoc').removeAttr('disabled');
                 }
             }).fail(function (res) {
-                console.log(res);
+                $('#alertdiv').append("<div id=\"alert\"></div>");
+                $('#alert').addClass("alert alert-danger");
+                $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                                          <strong>Error!</strong> Unknown error.Please try again later.");
+                $('#senddoc').html("Save");
+                $('#senddoc').removeAttr('disabled');
             });
+            
         }
         else
         {
@@ -273,6 +295,7 @@ $(function () {
             $('#alert').addClass("alert alert-danger");
             $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
                                           <strong>Error!</strong> Please add atleast one signatory.");
+            
         }
     });
 
