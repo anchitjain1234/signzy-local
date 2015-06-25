@@ -39,7 +39,7 @@
               echo "<li class=\"list-group-item\">";
                     echo "<div class=\"row\">";
                     echo "<div class=\"col-md-8\"><input type=\"checkbox\" class=\"pull-left\" />&nbsp;";
-                    $url = Router::url('/', true)."uploads/".$user_document['Document']['originalname'];
+                    $url = Router::url('/', true)."documents/show/".$user_document['Document']['id'];
 
                     echo '<a class="pull-left" href="'.$url.'">';
                     echo $user_document['Document']['name'];

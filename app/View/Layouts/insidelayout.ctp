@@ -46,7 +46,7 @@
         </div>
         <ul class="nav navbar-nav">
           <li><?php echo $this->Html->link('Documents',array('controller'=>'documents','action'=>'index'))?></li>
-          <li><?php echo $this->Html->link('Send',array('controller'=>'documents','action'=>'upload2'))?></li>
+          <li><?php echo $this->Html->link('New Document',array('controller'=>'documents','action'=>'upload'))?></li>
         </ul>
 
         <div id="navbar" class="navbar-collapse collapse navbar-right">
