@@ -22,6 +22,7 @@
         if(isset($document))
         {
 
+          $link=Router::url('/', true)."uploads/".$document['Document']['originalname'];
           echo "<embed src='".$link."' width = '1100' height = '380'></embed>";
         }
         else
