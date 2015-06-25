@@ -62,12 +62,7 @@ class DocumentsController extends AppController {
         $this->set('user_documents_data', $user_documents_data);
     }
 
-    /*
-      This function is upload2 because it is using native php uploading not the jquery uload which would be
-      used in prodcution version.
-      This would be most likely to be used in the outdated browsers which do not support jquery or has
-      less support for it.
-     */
+    
 
      public function upload() {
 
