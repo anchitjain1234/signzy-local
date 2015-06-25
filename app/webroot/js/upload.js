@@ -141,7 +141,8 @@ $(function () {
                 doc_org_name = r["documentoriginalname"];
                 doc_size = r["documentsize"];
                 doc_type = r["documenttype"];
-                upload_preview.html("<embed src='" + window.location.origin + "/cakephp/uploads/" + doc_name + "' width = '540' height = '490'></embed>");
+                console.log(window.window.location);
+                upload_preview.html("<embed src='../uploads/" + doc_name + "' width = '540' height = '490'></embed>");
             }
             else
             {
@@ -241,8 +242,6 @@ $(function () {
     });
 
     $('#senddoc').click(function () {
-        $('#senddoc').html("Saving Data and sending emails...");
-        $('#senddoc').attr('disabled', 'disabled');
         if (emails.length > 0)
         {
             $('#emails_hidden').val(emails_json);
@@ -253,6 +252,9 @@ $(function () {
                     "doc_type" : doc_type}
             }).success(function (res) {
                 res = JSON.parse(res);
+                $('#senddoc').html("Saving Data and sending emails...");
+                $('#senddoc').attr('disabled', 'disabled');
+                console.log('changed.')
                 if(res['finaldocstatus'])
                 {
                     window.location = "index";
@@ -278,6 +280,7 @@ $(function () {
                     }
                     $('#senddoc').html("Save");
                     $('#senddoc').removeAttr('disabled');
+                    console.log('changed again');
                 }
             }).fail(function (res) {
                 $('#alertdiv').append("<div id=\"alert\"></div>");
