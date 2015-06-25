@@ -173,6 +173,7 @@ class DocumentsController extends AppController {
         $this->autorender = false;
         $this->layout = false;
         $allowed = array('doc', 'pdf', 'docx');
+        $this->log($_FILES);
         if (isset($_FILES['data']['name']['Document']['file']) && $_FILES['data']['error']['Document']['file'] == 0) {
 
             $extension = pathinfo($_FILES['data']['name']['Document']['file'], PATHINFO_EXTENSION);
