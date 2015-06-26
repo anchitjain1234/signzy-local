@@ -14,7 +14,7 @@ $(function () {
     var doc_org_name;
     var doc_size;
     var doc_name;
-    
+    var file_pdf;
     
     function geterrorcontent(errorcode)
     {
@@ -141,8 +141,11 @@ $(function () {
                 doc_org_name = r["documentoriginalname"];
                 doc_size = r["documentsize"];
                 doc_type = r["documenttype"];
+                file_pdf = r["file_pdf"];
+                console.log(file_pdf);
                 console.log(window.window.location);
-                upload_preview.html("<embed src='../uploads/" + doc_name + "' width = '540' height = '490'></embed>");
+                console.log(doc_name.split('.')[0]);
+                upload_preview.html("<embed src='preview?name=" + doc_name.split('.')[0] + "&type="+doc_name.split('.')[1]+"&status=temp' width = '540' height = '490'></embed>");
             }
             else
             {

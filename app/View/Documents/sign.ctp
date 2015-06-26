@@ -11,7 +11,13 @@
     <div class="col-md-1"><?php echo $this->Html->image('profile_new.png' , array('alt' => 'Document')); ?></div>
     <div class="col-md-3"><h5><?php echo $name ?></h5><h5>Your Affiliated Company</h5><h6></h6></div>
     <div class="col-md-8 text-right">
-      <?php $link=Router::url('/', true)."uploads/".$document['Document']['originalname'];?>
+        <?php $name_seperated = explode(".", $document['Document']['originalname']); 
+              for( $i=0;$i<=count($name_seperated)-1;$i++)
+              {
+                  $name_front += $name_seperated[$i];
+              }
+        ?>
+      <?php $link=Router::url('/', true)."documents/preview?name=".$name_front."&type=".$name_seperated[count($name_seperated)];?>
       <a href="<?php echo $link; ?>">Download</a> | <?php echo $this->Html->link('Trail', array('controller'=>'documents','action'=>'trail',$document['Document']['id'])); ?>
     </div>
   </div>
