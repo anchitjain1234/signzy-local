@@ -728,13 +728,14 @@ class DocumentsController extends AppController {
         $this->set(compact('status_object'));
         $this->set('_serialize', 'status_object');
     }
-    
+
     /*
      * To preview the document.
      * Only available to the document owner and its collabarators.
      */
+
     public function preview() {
-        
+
         $this->layout = false;
         /*
          * This flag variable is needed for the case when document is shown while uploading
@@ -742,7 +743,7 @@ class DocumentsController extends AppController {
          * skip checking for that.
          */
         $nochecking_flag = 0;
-        
+
         if (isset($this->params['url']['name']) && isset($this->params['url']['type'])) {
             $docname = $this->params['url']['name'];
             $extension = $this->params['url']['type'];
@@ -774,41 +775,41 @@ class DocumentsController extends AppController {
         }
         $colids = [];
         
-            $this->loadModel('Col');
+        $this->loadModel('Col');
+        /*
+         * Finding info about the document 
+         */
+        $docinfo = $this->Document->find('first', array('conditions' => array('originalname' => $docname . '.' . $extension)));
+        /*
+         * If any info is found out related to the document.
+         */
+        if (isset($docinfo) && sizeof($docinfo) > 0) {
             /*
-             * Finding info about the document 
+             * If any info related to the doc is find out unset the nochecking flag even if the 
+             * status is set temp.
+             * Temp status would work only when document doesnt gets saved in database.
              */
-            $docinfo = $this->Document->find('first', array('conditions' => array('originalname' => $docname . '.' . $extension)));
+            $nochecking_flag = 0;
+            $cols = $this->Col->find('all', array('conditions' => array('did' => $docinfo['Document']['id'])));
+
             /*
-             * If any info is found out related to the document.
+             * colids would contain userids of all the collabarators.
              */
-            if (isset($docinfo) && sizeof($docinfo) > 0) {
-                /*
-                 * If any info related to the doc is find out unset the nochecking flag even if the 
-                 * status is set temp.
-                 * Temp status would work only when document doesnt gets saved in database.
-                 */
-                $nochecking_flag = 0;
-                $cols = $this->Col->find('all', array('conditions' => array('did' => $docinfo['Document']['id'])));
-                
-                /*
-                 * colids would contain userids of all the collabarators.
-                 */
-                $colids = [];
-                
-                /*
-                 * FIrst pushing ownerid into colids.
-                 */
-                array_push($colids, $docinfo['Document']['ownerid']);
-                
-                foreach ($cols as $col):
-                    array_push($colids, $col['Col']['uid']);
-                endforeach;
-            }
-            else {
-                throw new NotFoundException(__('Invalid URL'));
-            }
- 
+            $colids = [];
+
+            /*
+             * FIrst pushing ownerid into colids.
+             */
+            array_push($colids, $docinfo['Document']['ownerid']);
+
+            foreach ($cols as $col):
+                array_push($colids, $col['Col']['uid']);
+            endforeach;
+        }
+        /*
+         * If userid of current logged in user falls in colids array or the request is having temp 
+         * status than show the doc to user else show 404 error.
+         */
         if (in_array(CakeSession::read('Auth.User.id'), $colids) || $nochecking_flag === 1) {
 
             if (strtolower($extension) === 'pdf') {
@@ -823,18 +824,29 @@ class DocumentsController extends AppController {
             throw new NotFoundException(__('Invalid URL'));
         }
     }
-
+    
+    /*
+     * To download the document .
+     * Only available to document owners and collabarators .
+     * No temp status available.
+     */
     public function download() {
+        /*
+         * Same code as preview .
+         * Only change is that no temp request is available.
+         * Also one extra header is addded to download the document directly.
+         */
         $this->layout = false;
+        
         if (isset($this->params['url']['name']) && isset($this->params['url']['type'])) {
             $docname = $this->params['url']['name'];
             $extension = $this->params['url']['type'];
         } else {
             throw new NotFoundException(__('Invalid URL'));
         }
+        
         $docurl = '/home/anchit/uploads/' . $docname . '.' . $extension;
         $file_check = file_exists($docurl);
-
 
         if (!$file_check) {
             throw new NotFoundException(__('Invalid URL'));
@@ -847,9 +859,12 @@ class DocumentsController extends AppController {
         $docinfo = $this->Document->find('first', array('conditions' => array('originalname' => $docname . '.' . $extension)));
 
         if (isset($docinfo) && sizeof($docinfo) > 0) {
+            
             $cols = $this->Col->find('all', array('conditions' => array('did' => $docinfo['Document']['id'])));
+            
             $colids = [];
             array_push($colids, $docinfo['Document']['ownerid']);
+            
             foreach ($cols as $col):
                 array_push($colids, $col['Col']['uid']);
             endforeach;
@@ -857,12 +872,16 @@ class DocumentsController extends AppController {
         else {
             throw new NotFoundException(__('Invalid URL'));
         }
+        
         if (in_array(CakeSession::read('Auth.User.id'), $colids)) {
 
             if (strtolower($extension) === 'pdf') {
+                
                 header('Content-Type: application/pdf');
                 header("Content-Disposition:attachment;filename='" . $docname . "_from_verysure." . $extension . "'");
+                
             } elseif (strtolower($extension) === 'doc') {
+                
                 header('Content-Type: application/doc');
                 header("Content-Disposition:attachment;filename='" . $docname . "_from_verysure." . $extension . "'");
             }

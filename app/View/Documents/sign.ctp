@@ -12,13 +12,15 @@
     <div class="col-md-3"><h5><?php echo $name ?></h5><h5>Your Affiliated Company</h5><h6></h6></div>
     <div class="col-md-8 text-right">
         <?php $name_seperated = explode(".", $document['Document']['originalname']); 
-              for( $i=0;$i<=count($name_seperated)-1;$i++)
+ $name_front="";
+              for( $i=0;$i<count($name_seperated)-1;$i++)
               {
-                  $name_front += $name_seperated[$i];
+                  $name_front .= $name_seperated[$i];
               }
         ?>
-      <?php $link=Router::url('/', true)."documents/preview?name=".$name_front."&type=".$name_seperated[count($name_seperated)];?>
-      <a href="<?php echo $link; ?>">Download</a> | <?php echo $this->Html->link('Trail', array('controller'=>'documents','action'=>'trail',$document['Document']['id'])); ?>
+      <?php $link=Router::url('/', true)."documents/preview?name=".$name_front."&type=".$name_seperated[count($name_seperated)-1];
+            $download_link=Router::url('/', true)."documents/download?name=".$name_front."&type=".$name_seperated[count($name_seperated)-1];?>
+      <a href="<?php echo $download_link; ?>">Download</a> | <?php echo $this->Html->link('Trail', array('controller'=>'documents','action'=>'trail',$document['Document']['id'])); ?>
     </div>
   </div>
 
