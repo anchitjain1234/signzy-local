@@ -145,7 +145,7 @@ $(function () {
                 console.log(file_pdf);
                 console.log(window.window.location);
                 console.log(doc_name.split('.')[0]);
-                upload_preview.html("<embed src='preview?name=" + doc_name.split('.')[0] + "&type="+doc_name.split('.')[1]+"&status=temp' width = '540' height = '490'></embed>");
+                upload_preview.html("<iframe src='preview?name=" + doc_name.split('.')[0] + "&type="+doc_name.split('.')[1]+"&status=temp' width = '540' height = '490'></iframe>");
             }
             else
             {
@@ -248,6 +248,8 @@ $(function () {
         if (emails.length > 0)
         {
             $('#emails_hidden').val(emails_json);
+            $('#senddoc').html("Saving Data and sending emails...");
+            $('#senddoc').attr('disabled', 'disabled');
             $.ajax({
                 url: "upload",
                 method: "POST",
@@ -255,8 +257,6 @@ $(function () {
                     "doc_type" : doc_type}
             }).success(function (res) {
                 res = JSON.parse(res);
-                $('#senddoc').html("Saving Data and sending emails...");
-                $('#senddoc').attr('disabled', 'disabled');
                 console.log('changed.')
                 if(res['finaldocstatus'])
                 {

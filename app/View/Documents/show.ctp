@@ -27,7 +27,7 @@
 
       <div class="row top-buffer">
         <div class="col-md-12 bg-highlight" style="height:400px;">
-          <?php echo "<embed src='".$link."' width = '1100' height = '380'></embed>"; ?>
+          <?php echo "<iframe src='".$link."' width = '1100' height = '380'></iframe>"; ?>
         </div>
       </div>
 

@@ -34,15 +34,26 @@ class DocumentsController extends AppController {
     public function index() {
         /*
           To display all the previous uploaded documents of the user as well as the documents in which the
-          user id requested to sign it.
+          user id requested to sign it i.e. 
+         * documents of which user is owner as well as docs in which he is collabarator.
          */
-
+        
+        /*
+         * $docs_with_timeaskey will constain docinfo with its modified time as key
+         * value.
+         * We are us
+         */
+        $docs_with_timeaskey = [];
         $uid = CakeSession::read('Auth.User.id');
         $parameters = array(
             'conditions' => array('ownerid' => $uid),
         );
         $user_documents_data = $this->Document->find('all', $parameters);
-
+        
+        foreach($user_documents_data as $doc):
+            $docs_with_timeaskey[$doc['Document']['modified']->sec] = $doc;
+        endforeach;
+        
         /*
           Now finding documents in which user is a collabarator
          */
@@ -57,10 +68,13 @@ class DocumentsController extends AppController {
                 $parameters = array(
                     'conditions' => array('id' => $col['Col']['did']),
                 );
-                array_push($user_documents_data, $this->Document->find('first', $parameters));
+            $doc_data = $this->Document->find('first', $parameters);
+            $docs_with_timeaskey[$doc_data['Document']['modified']->sec]  = $doc_data;
+                array_push($user_documents_data,$doc_data );
             endforeach;
         }
-        $this->set('user_documents_data', $user_documents_data);
+        krsort($docs_with_timeaskey);
+        $this->set('user_documents_data', $docs_with_timeaskey);
     }
 
     public function upload() {
@@ -814,7 +828,7 @@ class DocumentsController extends AppController {
 
             if (strtolower($extension) === 'pdf') {
                 header('Content-Type: application/pdf');
-            } elseif (strtolower($extension) === 'doc') {
+            } elseif (strtolower($extension) === 'doc' || strtolower($extension)=== 'docx') {
                 header('Content-Type: application/doc');
             }
 
@@ -878,12 +892,12 @@ class DocumentsController extends AppController {
             if (strtolower($extension) === 'pdf') {
                 
                 header('Content-Type: application/pdf');
-                header("Content-Disposition:attachment;filename='" . $docname . "_from_verysure." . $extension . "'");
+                header("Content-Disposition:attachment;filename='" . $docinfo['Document']['name'] . "_from_verysure." . $extension . "'");
                 
-            } elseif (strtolower($extension) === 'doc') {
+            } elseif (strtolower($extension) === 'doc' || strtolower($extension)=== 'docx' ) {
                 
                 header('Content-Type: application/doc');
-                header("Content-Disposition:attachment;filename='" . $docname . "_from_verysure." . $extension . "'");
+                header("Content-Disposition:attachment;filename='" . $docinfo['Document']['name'] . "_from_verysure." . $extension . "'");
             }
 
             header("Content-Length: " . filesize($docurl));

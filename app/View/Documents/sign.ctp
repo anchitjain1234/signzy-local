@@ -30,7 +30,7 @@
         if(isset($document))
         {
 
-          echo "<embed src='".$link."' width = '1100' height = '380'></embed>";
+          echo "<iframe src='".$link."' width = '1100' height = '380'></iframe>";
         }
         else
         {
