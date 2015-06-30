@@ -34,189 +34,260 @@ class DocumentsController extends AppController {
     public function index() {
         /*
           To display all the previous uploaded documents of the user as well as the documents in which the
-          user id requested to sign it i.e. 
+          user id requested to sign it i.e.
          * documents of which user is owner as well as docs in which he is collabarator.
          */
-        
+
         /*
          * $docs_with_timeaskey will constain docinfo with its modified time as key
          * value.
-         * We are us
          */
+
         $docs_with_timeaskey = [];
+
         $uid = CakeSession::read('Auth.User.id');
+
         $parameters = array(
             'conditions' => array('ownerid' => $uid),
         );
         $user_documents_data = $this->Document->find('all', $parameters);
-        
-        foreach($user_documents_data as $doc):
+
+        foreach ($user_documents_data as $doc):
             $docs_with_timeaskey[$doc['Document']['modified']->sec] = $doc;
         endforeach;
-        
+
         /*
           Now finding documents in which user is a collabarator
          */
+
         $this->loadModel('Col');
+
         $parameters = array(
             'fields' => array('did'),
             'conditions' => array('uid' => $uid),
         );
         $coldata = $this->Col->find('all', $parameters);
+
         if ($coldata) {
             foreach ($coldata as $col):
+
                 $parameters = array(
                     'conditions' => array('id' => $col['Col']['did']),
                 );
-            $doc_data = $this->Document->find('first', $parameters);
-            $docs_with_timeaskey[$doc_data['Document']['modified']->sec]  = $doc_data;
-                array_push($user_documents_data,$doc_data );
+
+                $doc_data = $this->Document->find('first', $parameters);
+                $docs_with_timeaskey[$doc_data['Document']['modified']->sec] = $doc_data;
+                array_push($user_documents_data, $doc_data);
+
             endforeach;
         }
         krsort($docs_with_timeaskey);
         $this->set('user_documents_data', $docs_with_timeaskey);
     }
 
-    public function upload() {
+    /*
+     * It will save the document in document and col database.
+     * The data will be provided from upload_ajax
+     */
 
+    public function upload() {
         if ($this->request->is('post')) {
+
             $this->request->onlyAllow('ajax');
             $this->autorender = false;
             $this->layout = false;
+
             $emails = json_decode($this->request->data['emails']);
             $current_name = $this->request->data['doc_name'];
+
             /*
              * If user does not specifies the document name ,we would give name of the document as its original name.
              */
+
             if (isset($this->request->data['name']) && $this->request->data['name'] != "") {
                 $change_to_name = $this->request->data['name'];
             } else {
                 $change_to_name = $this->request->data['doc_org_name'];
             }
+
             $original_name = $this->request->data['doc_org_name'];
             $size = $this->request->data['doc_size'];
             $type = $this->request->data['doc_type'];
 
             /*
-             * Saving document data . In document table "originalname" refers to the name
-             * by ehich file is stored in the storage area
-             * and "name" refers to the name given by user.
+             * Checking if file with name provided exists in location or not.
              */
-            $this->Document->create();
-            $this->Document->set('name', $change_to_name);
-            $this->Document->set('size', $size);
-            $this->Document->set('type', $type);
-            $this->Document->set('originalname', $current_name);
-            $this->Document->set('ownerid', CakeSession::read("Auth.User.id"));
-            $this->Document->set('status', "0");
-            if ($this->Document->save()) {
-                /*
-                 * Checking if any signatories are there or not.
-                 */
-                if (count($emails) > 0) {
-                    $docid = $this->Document->find('first', array('conditions' => array('originalname' => $current_name)
-                        , 'fields' => array('id')));
+
+            if (file_exists(Configure::read('upload_location_url') . $current_name)) {
+
+                $document_check_in_db = $this->Document->find('count', array('conditions' => array('originalname' => $current_name)));
+
+                if ($document_check_in_db === 0) {
 
                     /*
-                     * Checking if any of the emails goven in signatory is invalid or not.
-                     * If anyone is invalid it does means that user is tampering so we should put him in risky category.
+                     * Saving document data . In document table "originalname" refers to the name
+                     * by ehich file is stored in the storage area
+                     * and "name" refers to the name given by user.
                      */
-                    foreach ($emails as $email):
-                        if (!Validation::email($email)) {
-                            throw new NotFoundException(__('Error while saving data.'));
-                        }
-                    endforeach;
+                    $this->Document->create();
+                    $this->Document->set('name', $change_to_name);
+                    $this->Document->set('size', $size);
+                    $this->Document->set('type', $type);
+                    $this->Document->set('originalname', $current_name);
+                    $this->Document->set('ownerid', CakeSession::read("Auth.User.id"));
+                    $this->Document->set('status', "0");
 
-                    $this->loadModel('Col');
-                    $this->loadModel('User');
+                    if ($this->Document->save()) {
 
-                    foreach ($emails as $email):
                         /*
-                         * Finding user related to the email.
+                         * Checking if any signatories are there or not.
                          */
-                        $userdata = $this->User->find('first', array('conditions' => array('username' => $email)));
-                        /*
-                         * Saving corresponding data in cols table.
-                         */
-                        $this->Col->create();
-                        $this->Col->set('did', $docid['Document']['id']);
-                        /*
-                          Change status here to default status
-                         */
-                        $this->Col->set('status', Configure::read('doc_pending'));
-                        $token = $this->generate_token($email, $userdata['User']['name']);
-                        $this->Col->set('token', $token);
-                        $this->Col->set('uid', $userdata['User']['id']);
-                        if ($this->Col->save()) {
+
+                        if (count($emails) > 0) {
+                            $docid = $this->Document->find('first', array('conditions' => array('originalname' => $current_name)
+                                , 'fields' => array('id')));
+
                             /*
-                              Send email to the saved collabarator
+                             * Checking if any of the emails goven in signatory is invalid or not.
+                             * If anyone is invalid it does means that user is tampering so we should put him in risky category.
                              */
-                            $document_signing_link = Router::url(array('controller' => 'documents',
-                                        'action' => 'sign',
-                                        "?" => [
-                                            "userid" => $userdata['User']['id']
-                                            , "token" => $token
-                                            , "docuid" => $docid['Document']['id']])
-                                            , true);
-                            $this->sendemail('sign_document_request', 'notification_email_layout', $userdata, $document_signing_link, 'Document Signing Request');
-                        } else {
-                            echo '{"finaldocstatus":false,"error":2}';
+
+                            foreach ($emails as $email):
+                                if (!Validation::email($email)) {
+                                    throw new NotFoundException(__('Error while saving data.'));
+                                }
+                            endforeach;
+
+                            $this->loadModel('Col');
+                            $this->loadModel('User');
+
+                            foreach ($emails as $email):
+
+                                /*
+                                 * Finding user related to the email.
+                                 */
+
+                                $userdata = $this->User->find('first', array('conditions' => array('username' => $email)));
+
+                                /*
+                                 * Saving corresponding data in cols table.
+                                 */
+
+                                $this->Col->create();
+                                $this->Col->set('did', $docid['Document']['id']);
+
+                                /*
+                                  Change status here to default status
+                                 */
+                                $this->Col->set('status', Configure::read('doc_pending'));
+                                $token = $this->generate_token($email, $userdata['User']['name']);
+                                $this->Col->set('token', $token);
+                                $this->Col->set('uid', $userdata['User']['id']);
+
+                                if ($this->Col->save()) {
+                                    /*
+                                      Send email to the saved collabarator
+                                     */
+
+                                    $document_signing_link = Router::url(array('controller' => 'documents',
+                                                'action' => 'sign',
+                                                "?" => [
+                                                    "userid" => $userdata['User']['id']
+                                                    , "token" => $token
+                                                    , "docuid" => $docid['Document']['id']])
+                                                    , true);
+
+                                    $this->sendemail('sign_document_request', 'notification_email_layout', $userdata, $document_signing_link, 'Document Signing Request');
+                                } else {
+                                    echo '{"finaldocstatus":false,"error":2}';
+                                }
+
+                            endforeach;
+
+                            echo '{"finaldocstatus":true}';
+                            $this->Session->setFlash(__('Document uploaded suceessfully and mails sent to all signatories'), 'flash_success');
+                            exit;
                         }
-                    endforeach;
-                    echo '{"finaldocstatus":true}';
-                    $this->Session->setFlash(__('Document uploaded suceessfully and mails sent to all signatories'), 'flash_success');
+                        /*
+                         * Case when no signatories are present.
+                         */
+                        echo '{"finaldocstatus":false,"error":1}';
+                        exit;
+                    }
+                    /*
+                     * Case when document data can't be saved into the table.
+                     */
+                    echo '{"finaldocstatus":false,"error":2}';
                     exit;
                 }
                 /*
-                 * Case when no signatories are present.
+                 * Case when document already exists in database.
                  */
-                echo '{"finaldocstatus":false,"error":1}';
+                echo '{"finaldocstatus":false,"error":2}';
                 exit;
             }
             /*
-             * Case when document data can't be saved into the table.
+             * Case when document is not present in saved location.
              */
             echo '{"finaldocstatus":false,"error":2}';
             exit;
         }
     }
 
+    /*
+     * It will move the uploaded file in saving location and will return the data
+     * which would be sent to upload method.
+     */
+
     public function upload_ajax() {
         $this->request->onlyAllow('ajax');
         $this->autorender = false;
         $this->layout = false;
-        $allowed = array('doc', 'pdf', 'docx');
-        $this->log($_FILES);
-        if (isset($_FILES['data']['name']['Document']['file']) && $_FILES['data']['error']['Document']['file'] == 0) {
 
-            $extension = pathinfo($_FILES['data']['name']['Document']['file'], PATHINFO_EXTENSION);
+        /*
+         * Getting headers of the request to check the url referer
+         * Referer should be /documents/upload
+         */
+        $headers = getallheaders();
 
-            if (!in_array(strtolower($extension), $allowed)) {
-                echo '{"documentstatus" : false , "error": -1}';
-                exit;
+        /*
+         * Checking if url referrer matches
+         */
+        if ($headers['Referer'] === Router::url(array('controller' => 'documents', 'action' => 'upload'), true)) {
+
+            $allowed = array('doc', 'pdf', 'docx');
+            if (isset($_FILES['data']['name']['Document']['file']) && $_FILES['data']['error']['Document']['file'] == 0) {
+
+                $extension = pathinfo($_FILES['data']['name']['Document']['file'], PATHINFO_EXTENSION);
+
+                if (!in_array(strtolower($extension), $allowed)) {
+                    echo '{"documentstatus" : false , "error": -1}';
+                    exit;
+                }
+
+                /*
+                 * get_temporary_document_name is defined in AppController.php
+                 */
+                $temporary_document_name = $this->get_temporary_document_name();
+                $temporary_document_name = $temporary_document_name . "." . $extension;
+
+                /*
+                 * Saving document so that document doesn't gets
+                 * lost from the temporary files.
+                 */
+                if (move_uploaded_file($_FILES['data']['tmp_name']['Document']['file'], Configure::read('upload_location_url') . $temporary_document_name)) {
+
+                    //echo $file;
+                    echo '{"documentstatus" : true '
+                    . ',"documentname" : "' . $temporary_document_name . '"'
+                    . ',"documentsize":' . $_FILES['data']['size']['Document']['file'] . ''
+                    . ',"documentoriginalname":"' . $_FILES['data']['name']['Document']['file'] . '"'
+                    . ',"documenttype":"' . $_FILES['data']['type']['Document']['file'] . '"}';
+                    exit;
+                }
+                echo '{"documentstatus" : false , "error":' . $_FILES['data']['error']['Document']['file'] . '}';
             }
-
-            /*
-             * get_temporary_document_name is defined in AppController.php
-             */
-            $temporary_document_name = $this->get_temporary_document_name();
-            $temporary_document_name = $temporary_document_name . "." . $extension;
-
-            /*
-             * Saving document so that document doesn't gets
-             * lost from the temporary files.
-             */
-            if (move_uploaded_file($_FILES['data']['tmp_name']['Document']['file'], '/home/anchit/uploads/' . $temporary_document_name)) {
-
-                //echo $file;
-                echo '{"documentstatus" : true '
-                . ',"documentname" : "' . $temporary_document_name . '"'
-                . ',"documentsize":' . $_FILES['data']['size']['Document']['file'] . ''
-                . ',"documentoriginalname":"' . $_FILES['data']['name']['Document']['file'] . '"'
-                . ',"documenttype":"' . $_FILES['data']['type']['Document']['file'] . '"}';
-                exit;
-            }
-            echo '{"documentstatus" : false , "error":' . $_FILES['data']['error']['Document']['file'] . '}';
+            echo '{"documentstatus" : false }';
         }
         echo '{"documentstatus" : false }';
     }
@@ -768,8 +839,8 @@ class DocumentsController extends AppController {
             $extension = $this->params['url']['type'];
             /*
              * status would be set to temp if document is needed to be viewed while uploading.
-             * 
-             * One bug is there that when document doesnt gets saved into database but remains saved 
+             *
+             * One bug is there that when document doesnt gets saved into database but remains saved
              * in our location anyone can view that document by setting status variable to temp.
              */
             if (isset($this->params['url']['status']) && $this->params['url']['status'] === 'temp') {
@@ -782,21 +853,21 @@ class DocumentsController extends AppController {
         } else {
             throw new NotFoundException(__('Invalid URL'));
         }
-        
+
         /*
          * Change this url according to the location where document is getting saved.
          */
-        $docurl = '/home/anchit/uploads/' . $docname . '.' . $extension;
+        $docurl = Configure::read('upload_location_url') . $docname . '.' . $extension;
         $file_check = file_exists($docurl);
 
         if (!$file_check) {
             throw new NotFoundException(__('Invalid URL'));
         }
         $colids = [];
-        
+
         $this->loadModel('Col');
         /*
-         * Finding info about the document 
+         * Finding info about the document
          */
         $docinfo = $this->Document->find('first', array('conditions' => array('originalname' => $docname . '.' . $extension)));
         /*
@@ -804,7 +875,7 @@ class DocumentsController extends AppController {
          */
         if (isset($docinfo) && sizeof($docinfo) > 0) {
             /*
-             * If any info related to the doc is find out unset the nochecking flag even if the 
+             * If any info related to the doc is find out unset the nochecking flag even if the
              * status is set temp.
              * Temp status would work only when document doesnt gets saved in database.
              */
@@ -826,14 +897,14 @@ class DocumentsController extends AppController {
             endforeach;
         }
         /*
-         * If userid of current logged in user falls in colids array or the request is having temp 
+         * If userid of current logged in user falls in colids array or the request is having temp
          * status than show the doc to user else show 404 error.
          */
         if (in_array(CakeSession::read('Auth.User.id'), $colids) || $nochecking_flag === 1) {
 
             if (strtolower($extension) === 'pdf') {
                 header('Content-Type: application/pdf');
-            } elseif (strtolower($extension) === 'doc' || strtolower($extension)=== 'docx') {
+            } elseif (strtolower($extension) === 'doc' || strtolower($extension) === 'docx') {
                 header('Content-Type: application/doc');
             }
 
@@ -843,12 +914,13 @@ class DocumentsController extends AppController {
             throw new NotFoundException(__('Invalid URL'));
         }
     }
-    
+
     /*
      * To download the document .
      * Only available to document owners and collabarators .
      * No temp status available.
      */
+
     public function download() {
         /*
          * Same code as preview .
@@ -856,15 +928,15 @@ class DocumentsController extends AppController {
          * Also one extra header is addded to download the document directly.
          */
         $this->layout = false;
-        
+
         if (isset($this->params['url']['name']) && isset($this->params['url']['type'])) {
             $docname = $this->params['url']['name'];
             $extension = $this->params['url']['type'];
         } else {
             throw new NotFoundException(__('Invalid URL'));
         }
-        
-        $docurl = '/home/anchit/uploads/' . $docname . '.' . $extension;
+
+        $docurl = Configure::read('upload_location_url') . $docname . '.' . $extension;
         $file_check = file_exists($docurl);
 
         if (!$file_check) {
@@ -873,17 +945,17 @@ class DocumentsController extends AppController {
 
         $this->loadModel('Col');
         /*
-         * Finding info about the document 
+         * Finding info about the document
          */
         $docinfo = $this->Document->find('first', array('conditions' => array('originalname' => $docname . '.' . $extension)));
 
         if (isset($docinfo) && sizeof($docinfo) > 0) {
-            
+
             $cols = $this->Col->find('all', array('conditions' => array('did' => $docinfo['Document']['id'])));
-            
+
             $colids = [];
             array_push($colids, $docinfo['Document']['ownerid']);
-            
+
             foreach ($cols as $col):
                 array_push($colids, $col['Col']['uid']);
             endforeach;
@@ -891,16 +963,15 @@ class DocumentsController extends AppController {
         else {
             throw new NotFoundException(__('Invalid URL'));
         }
-        
+
         if (in_array(CakeSession::read('Auth.User.id'), $colids)) {
 
             if (strtolower($extension) === 'pdf') {
-                
+
                 header('Content-Type: application/pdf');
                 header("Content-Disposition:attachment;filename='" . $docinfo['Document']['name'] . "_from_verysure." . $extension . "'");
-                
-            } elseif (strtolower($extension) === 'doc' || strtolower($extension)=== 'docx' ) {
-                
+            } elseif (strtolower($extension) === 'doc' || strtolower($extension) === 'docx') {
+
                 header('Content-Type: application/doc');
                 header("Content-Disposition:attachment;filename='" . $docinfo['Document']['name'] . "_from_verysure." . $extension . "'");
             }
