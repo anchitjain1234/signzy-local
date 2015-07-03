@@ -12,3 +12,6 @@ $config['doc_rejected'] = '3';
 $config['user_verified'] = 1;
 $config['user_not_verified'] = 0;
 $config['upload_location_url'] = '/home/anchit/uploads/';
+$config['legal_head'] = '1';
+$config['auth_sign'] = '2';
+$config['unauth_sign'] = '0';

@@ -94,6 +94,10 @@ jQuery(document).ready(function () {
     $.pwd_check = function () {
 
         var pwd = $("#password").val();
+        /*
+         * Change score here to change the password security.
+         * Currently security is very light.
+         */
         if (score < 17 || pwd === "") {
             pwderror = 1;
             $("#pwd_glyph").attr('class', 'glyphicon glyphicon-remove form-control-feedback');

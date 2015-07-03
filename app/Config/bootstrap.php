@@ -70,6 +70,7 @@ Cache::config('default', array('engine' => 'File'));
  *
  */
 CakePlugin::loadAll();
+CakePlugin::load('CakePdf', array('bootstrap' => true, 'routes' => true));
 /**
  * To prefer app translation over plugin translation, you can set
  *

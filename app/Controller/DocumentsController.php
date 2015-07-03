@@ -91,6 +91,8 @@ class DocumentsController extends AppController {
      */
 
     public function upload() {
+        $flag_for_not_sending_email_to_legal_head = 0;
+
         if ($this->request->is('post')) {
 
             $this->request->onlyAllow('ajax');
@@ -98,6 +100,12 @@ class DocumentsController extends AppController {
             $this->layout = false;
 
             $emails = json_decode($this->request->data['emails']);
+            $companies_info = $this->request->data['company_info'];
+            $biometric_info = json_decode($this->request->data['biometric_info']);
+
+            $this->log($companies_info);
+            $this->log($biometric_info);
+
             $current_name = $this->request->data['doc_name'];
 
             /*
@@ -158,16 +166,50 @@ class DocumentsController extends AppController {
                                 }
                             endforeach;
 
+                            $this->loadModel('Company');
+                            $this->loadModel('Compmember');
+
+                            $companies = [];
+                            $company_info_from_db = [];
+                            $company_member_info_from_db = [];
+                            foreach ($companies_info as $email => $company):
+                                if (!in_array($company, $companies)) {
+                                    $comp_info = $this->Company->find('first', array('conditions' => array('name' => $company)));
+                                    if (isset($comp_info) && $comp_info != '') {
+                                        array_push($companies, $company);
+                                        $company_info_from_db[$company] = $comp_info;
+                                        $company_member_info_from_db[$company] = $this->Compmember->find('all', array('conditions' => array('cid' => $comp_info['Company']['id'])));
+                                    } else {
+                                        throw new NotFoundException(__('Error while saving data.'));
+                                    }
+                                }
+                            endforeach;
+
                             $this->loadModel('Col');
                             $this->loadModel('User');
 
-                            foreach ($emails as $email):
 
+                            foreach ($emails as $email):
+                                $flag_for_not_sending_email_to_legal_head = 0;
+                                $flag_when_company_is_not_added = 1;
+                                
                                 /*
                                  * Finding user related to the email.
                                  */
 
                                 $userdata = $this->User->find('first', array('conditions' => array('username' => $email)));
+
+                                if (isset($companies_info[$email]) && $companies_info[$email] !== '') {
+                                    $flag_for_not_sending_email_to_legal_head = 0;
+                                    $flag_when_company_is_not_added = 0;
+                                    $member_info_for_this_company = $company_member_info_from_db[$companies_info[$email]];
+
+                                    $comp_member = $company_member_info_from_db[$companies_info[$email]];
+                                        if ($comp_member['Compmember']['uid'] === CakeSession::read('Auth.User.id')) {
+                                            $flag_for_not_sending_email_to_legal_head = 1;
+                                            break;
+                                        }
+                                }
 
                                 /*
                                  * Saving corresponding data in cols table.
@@ -183,21 +225,61 @@ class DocumentsController extends AppController {
                                 $token = $this->generate_token($email, $userdata['User']['name']);
                                 $this->Col->set('token', $token);
                                 $this->Col->set('uid', $userdata['User']['id']);
-
+                                
+                                /*
+                                 * Saving the company id in collabaratotrs when authorised signatory is on behalf of some company.
+                                 */
+                                if($flag_when_company_is_not_added === 0)
+                                {
+                                    $this->Col->set('cid',$company_info_from_db[$companies_info[$email]]['Company']['id']);
+                                }
+                                
                                 if ($this->Col->save()) {
-                                    /*
-                                      Send email to the saved collabarator
-                                     */
+                                    if ($flag_for_not_sending_email_to_legal_head === 1 || $flag_when_company_is_not_added === 1) {
+                                        /*
+                                          Send email to the saved collabarator
+                                         */
 
-                                    $document_signing_link = Router::url(array('controller' => 'documents',
-                                                'action' => 'sign',
-                                                "?" => [
-                                                    "userid" => $userdata['User']['id']
-                                                    , "token" => $token
-                                                    , "docuid" => $docid['Document']['id']])
-                                                    , true);
+                                        $document_signing_link = Router::url(array('controller' => 'documents',
+                                                    'action' => 'sign',
+                                                    "?" => [
+                                                        "userid" => $userdata['User']['id']
+                                                        , "token" => $token
+                                                        , "docuid" => $docid['Document']['id']])
+                                                        , true);
 
-                                    $this->sendemail('sign_document_request', 'notification_email_layout', $userdata, $document_signing_link, 'Document Signing Request');
+                                        //$this->sendemail('sign_document_request', 'notification_email_layout', $userdata, $document_signing_link, 'Document Signing Request');
+                                    }
+                                    else
+                                    {
+                                        /*
+                                         * Sending email to legal head(s) to ask permission for this collabarator to sign the document.
+                                         */
+                                        $comp_member_info = $company_member_info_from_db[$companies_info[$email]];
+                                        
+                                        foreach($comp_member_info as $comp_member):
+                                            if($comp_member['Compmember']['status'] === Configure::read('legal_head'))
+                                            {
+                                                $user_info = $this->User->find('first',array('conditions'=>array('id'=>$comp_member['Compmember']['uid'])));
+                                                $title = 'Permission for Signing';
+                                                $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
+                                                $subject = 'Authorising user for document signing';
+                                                $content = "A user has requested to sign on your company behalf.CLick on below button to authorise that "
+                                                        . "user for signing the document.";
+                                                $this->send_general_email($user_info, $link, $title, $content, $subject);
+                                            }
+                                        endforeach;
+                                        
+                                        /*
+                                         * Sending mail to the collabarator that he has been requested to sign on behalf of organization.
+                                         */
+                                        $title = 'Document Signing Request';
+                                        $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
+                                        $subject = 'Document Signing Request';
+                                        $content = "A user has requested for you to sign on some company behalf.Wait for your authorisation from that "
+                                                . "company.Click below button to send email again to company legal head for granting access.";
+                                        $this->send_general_email($userdata, $link, $title, $content, $subject);
+                                    }
                                 } else {
                                     echo '{"finaldocstatus":false,"error":2}';
                                 }

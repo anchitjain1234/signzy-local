@@ -71,8 +71,6 @@ class AppController extends Controller {
     }
 
     public function sendemail($email_view, $email_layout, $userdata, $link, $subject) {
-        $this->log('userdata array');
-        $this->log($userdata);
         $sign_document_email = new CakeEmail('mandrill_signup');
         $sign_document_email->to($userdata['User']['username']);
         $sign_document_email->subject($subject);
@@ -80,6 +78,18 @@ class AppController extends Controller {
                 ->viewVars(array('link' => $link,
                     'name_of_user' => $userdata['User']['name']));
         return($sign_document_email->send());
+    }
+    
+    public function send_general_email($userdata,$link,$title,$content,$subject) {
+        $email = new CakeEmail('mandrill_signup');
+        $email->template('general_email', 'notification_email_layout')
+              ->viewVars(array('link' => $link,
+                    'name_of_user' => $userdata['User']['name'],
+                    'title_for_email' => $title,
+                     'content_for_email'=>$content));
+        $email ->to($userdata['User']['username']);
+        $email->subject($subject);
+        return($email->send());
     }
     
     public function company_name_from_email_check($email,$company_name)
