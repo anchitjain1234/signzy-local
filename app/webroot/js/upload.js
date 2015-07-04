@@ -1,6 +1,7 @@
 /*
  *
  * Change JS alerts to Bootstrap alerts.
+ *
  */
 $(function () {
     var ul = $('#document_name_with_progress');

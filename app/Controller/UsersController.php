@@ -89,7 +89,7 @@ class UsersController extends AppController {
                         $this->Compmember->set('cid', $company_data['Company']['id']);
                         $userdata = $this->User->find('first', array('conditions' => array('username' => $this->request->data['User']['username'])));
                         $this->Compmember->set('uid', $userdata['User']['id']);
-                        
+                        $this->Compmember->set('status',Configure::read('legal_head'));
                         if ($this->Compmember->save()) {
                             /*
                               Send verification email

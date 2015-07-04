@@ -121,7 +121,8 @@ class DocumentsController extends AppController {
             $original_name = $this->request->data['doc_org_name'];
             $size = $this->request->data['doc_size'];
             $type = $this->request->data['doc_type'];
-
+            
+            $owner_data = $this->User->find('first',array('conditions'=>array('id'=>CakeSession::read('Auth.User.id'))));
             /*
              * Checking if file with name provided exists in location or not.
              */
@@ -169,46 +170,97 @@ class DocumentsController extends AppController {
                             $this->loadModel('Company');
                             $this->loadModel('Compmember');
 
+                            /*
+                             * $companies will have the name of companies that the user has requested to be a collabarator.
+                             * 
+                             * $company_info_from_db will contain the information of company fetched from company tables. It will store
+                             * data in form of key value pair . Key would be company name and value would be company info fetched.
+                             * 
+                             * $company_member_info_from_db will contain the information of all the signatories of the companies.
+                             * Information will be stored as key value. Key = Comoany Name , Value = Signatories.
+                             *  
+                             */
                             $companies = [];
                             $company_info_from_db = [];
                             $company_member_info_from_db = [];
+
+                            $status = array();
+                            array_push($status, array('status' => Configure::read('legal_head')));
+                            array_push($status, array('status' => Configure::read('auth_sign')));
                             foreach ($companies_info as $email => $company):
                                 if (!in_array($company, $companies)) {
                                     $comp_info = $this->Company->find('first', array('conditions' => array('name' => $company)));
                                     if (isset($comp_info) && $comp_info != '') {
                                         array_push($companies, $company);
                                         $company_info_from_db[$company] = $comp_info;
-                                        $company_member_info_from_db[$company] = $this->Compmember->find('all', array('conditions' => array('cid' => $comp_info['Company']['id'])));
+                                        $company_member_info_from_db[$company] = $this->Compmember->find('all', array('conditions' => array('cid' => $comp_info['Company']['id'], '$or' => $status)));
                                     } else {
                                         throw new NotFoundException(__('Error while saving data.'));
                                     }
                                 }
                             endforeach;
 
+                            $this->log($company_info_from_db);
+                            $this->log($company_member_info_from_db);
                             $this->loadModel('Col');
                             $this->loadModel('User');
 
 
                             foreach ($emails as $email):
+                                /*
+                                 * Flags for distinguishing when user is not signing on any companys behalf 
+                                 * and when user is signing on some comopany behalf than he is authorised or not.
+                                 */
                                 $flag_for_not_sending_email_to_legal_head = 0;
                                 $flag_when_company_is_not_added = 1;
-                                
+
                                 /*
                                  * Finding user related to the email.
                                  */
 
                                 $userdata = $this->User->find('first', array('conditions' => array('username' => $email)));
 
+                                /*
+                                 * Checking if collabarator is requested to sign on some company's behalf.
+                                 */
                                 if (isset($companies_info[$email]) && $companies_info[$email] !== '') {
+
                                     $flag_for_not_sending_email_to_legal_head = 0;
                                     $flag_when_company_is_not_added = 0;
-                                    $member_info_for_this_company = $company_member_info_from_db[$companies_info[$email]];
+                                    $comp_members = $company_member_info_from_db[$companies_info[$email]];
 
-                                    $comp_member = $company_member_info_from_db[$companies_info[$email]];
-                                        if ($comp_member['Compmember']['uid'] === CakeSession::read('Auth.User.id')) {
+                                    /*
+                                     * Checking for the condition when email is found in company members list and that email
+                                     * is authorised signatory or legal head.
+                                     */
+                                    foreach ($comp_members as $comp_member) {
+
+                                        /*
+                                         * If current user is authorised signatory or legal head.
+                                         */
+                                        if ($comp_member['Compmember']['uid'] === $userdata['User']['id'] &&
+                                                ($comp_member['Compmember']['status'] === Configure::read('auth_sign') || $comp_member['Compmember']['status'] === Configure::read('legal_head'))) {
                                             $flag_for_not_sending_email_to_legal_head = 1;
                                             break;
                                         }
+                                    }
+                                }
+
+                                /*
+                                 * Add this unauthorised user as unauthorised signatory under company members table if he is not present 
+                                 * as unauthorised user before. 
+                                 */
+
+                                if ($flag_when_company_is_not_added === 0 && $flag_for_not_sending_email_to_legal_head == 0) {
+                                    $previously_present_check = $this->Compmember->find('count', array('conditions' => array('cid' => $company_info_from_db[$companies_info[$email]]['Company']['id'], 'uid' => $userdata['User']['id'], 'status' => Configure::read('unauth_sign'))));
+
+                                    if ($previously_present_check === 0) {
+                                        $this->Compmember->create();
+                                        $this->Compmember->set('cid', $company_info_from_db[$companies_info[$email]]['Company']['id']);
+                                        $this->Compmember->set('uid', $userdata['User']['id']);
+                                        $this->Compmember->set('status', Configure::read('unauth_sign'));
+                                        $this->Compmember->save();
+                                    }
                                 }
 
                                 /*
@@ -225,15 +277,14 @@ class DocumentsController extends AppController {
                                 $token = $this->generate_token($email, $userdata['User']['name']);
                                 $this->Col->set('token', $token);
                                 $this->Col->set('uid', $userdata['User']['id']);
-                                
+
                                 /*
                                  * Saving the company id in collabaratotrs when authorised signatory is on behalf of some company.
                                  */
-                                if($flag_when_company_is_not_added === 0)
-                                {
-                                    $this->Col->set('cid',$company_info_from_db[$companies_info[$email]]['Company']['id']);
+                                if ($flag_when_company_is_not_added === 0) {
+                                    $this->Col->set('cid', $company_info_from_db[$companies_info[$email]]['Company']['id']);
                                 }
-                                
+
                                 if ($this->Col->save()) {
                                     if ($flag_for_not_sending_email_to_legal_head === 1 || $flag_when_company_is_not_added === 1) {
                                         /*
@@ -248,37 +299,44 @@ class DocumentsController extends AppController {
                                                         , "docuid" => $docid['Document']['id']])
                                                         , true);
 
-                                        //$this->sendemail('sign_document_request', 'notification_email_layout', $userdata, $document_signing_link, 'Document Signing Request');
-                                    }
-                                    else
-                                    {
+                                        $this->sendemail('sign_document_request', 'notification_email_layout', $userdata, $document_signing_link, 'Document Signing Request');
+                                    } else {
                                         /*
                                          * Sending email to legal head(s) to ask permission for this collabarator to sign the document.
+                                         * Add code here to send email to legal head only once.
                                          */
                                         $comp_member_info = $company_member_info_from_db[$companies_info[$email]];
-                                        
-                                        foreach($comp_member_info as $comp_member):
-                                            if($comp_member['Compmember']['status'] === Configure::read('legal_head'))
-                                            {
-                                                $user_info = $this->User->find('first',array('conditions'=>array('id'=>$comp_member['Compmember']['uid'])));
+
+                                        foreach ($comp_member_info as $comp_member):
+                                            if ($comp_member['Compmember']['status'] === Configure::read('legal_head')) {
+                                                $user_info = $this->User->find('first', array('conditions' => array('id' => $comp_member['Compmember']['uid'])));
                                                 $title = 'Permission for Signing';
-                                                $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
+                                                $link = Router::url(array('controller' => 'compmember', 'action' => 'authorise_user',$company_info_from_db[$companies_info[$email]]['Company']['id']), true);
                                                 $subject = 'Authorising user for document signing';
-                                                $content = "A user has requested to sign on your company behalf.CLick on below button to authorise that "
-                                                        . "user for signing the document.";
-                                                $this->send_general_email($user_info, $link, $title, $content, $subject);
+                                                $content = $userdata['User']['name']." has requested to sign on your company behalf.Click on below button to authorise "
+                                                        . "users for signing the document.";
+                                                $button_text = 'Authorize users';
+                                                $this->send_general_email($user_info, $link, $title, $content, $subject, $button_text);
                                             }
                                         endforeach;
-                                        
+
                                         /*
-                                         * Sending mail to the collabarator that he has been requested to sign on behalf of organization.
+                                         * Sending mail to the collabarator with the signing link which would only be valid if he becomes 
+                                         * authorized signatory in future.
                                          */
                                         $title = 'Document Signing Request';
-                                        $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
-                                        $subject = 'Document Signing Request';
-                                        $content = "A user has requested for you to sign on some company behalf.Wait for your authorisation from that "
+                                        $link = Router::url(array('controller' => 'documents',
+                                                    'action' => 'sign',
+                                                    "?" => [
+                                                        "userid" => $userdata['User']['id']
+                                                        , "token" => $token
+                                                        , "docuid" => $docid['Document']['id']])
+                                                        , true);
+                                        $subject = 'Authoirzed Signatory granting request';
+                                        $content = $owner_data['User']['name']." has requested for you to sign on ".$company_info_from_db[$companies_info[$email]]['Company']['name']." behalf.Wait for your authorisation from that "
                                                 . "company.Click below button to send email again to company legal head for granting access.";
-                                        $this->send_general_email($userdata, $link, $title, $content, $subject);
+                                        $button_text = "Sign Document";
+                                        $this->send_general_email($userdata, $link, $title, $content, $subject, $button_text);
                                     }
                                 } else {
                                     echo '{"finaldocstatus":false,"error":2}';
@@ -328,7 +386,8 @@ class DocumentsController extends AppController {
 
         /*
          * Getting headers of the request to check the url referer
-         * Referer should be /documents/upload
+         * Referer should be /documents/
+         * upload
          */
         $headers = getallheaders();
 
@@ -415,12 +474,38 @@ class DocumentsController extends AppController {
                     'uid' => $userid,
                     'token' => $token,
                     'did' => $docuid
-                ),
-                'fields' => array('id', 'status')
+                )
             );
             $coldata = $this->Col->find('first', $parameters);
-
+            
+            /*
+             * Add code here is the user is unauthorised signatory of the comopany
+             */
             if ($coldata) {
+                /*
+                 * If user id signing on behalf of company
+                 */
+                if(isset($coldata['Col']['cid']))
+                {
+                    /*
+                     * Checking if user is authorized to sign or not.
+                     */
+                    $this->loadModel('Compmember');
+                    $authorized_check = $this->Compmember->find('count',array('conditions'=>array('cid'=>$coldata['Col']['cid'] , 'uid' => CakeSession::read('Auth.User.id') , 'status' =>Configure::read('auth_sign'))));
+                    $this->loadModel('Company');
+                    $company_info = $this->Company->find('first',array('conditions'=>array('id'=>$coldata['Col']['cid'])));
+                    $this->set('company_info',$company_info);
+                    if($authorized_check === 0)
+                    {
+                        $this->set('unauthorized',true);
+                        $this->render();
+                    }
+                    else
+                    {
+                        $this->set('document', $this->Document->findById($docuid));
+                        $this->render();
+                    }
+                }
                 /*
                   If all the variables are correct show the document to the user and render the view
                  */

@@ -80,13 +80,14 @@ class AppController extends Controller {
         return($sign_document_email->send());
     }
     
-    public function send_general_email($userdata,$link,$title,$content,$subject) {
+    public function send_general_email($userdata,$link,$title,$content,$subject,$button_text) {
         $email = new CakeEmail('mandrill_signup');
         $email->template('general_email', 'notification_email_layout')
               ->viewVars(array('link' => $link,
                     'name_of_user' => $userdata['User']['name'],
                     'title_for_email' => $title,
-                     'content_for_email'=>$content));
+                     'content_for_email'=>$content,
+                  'button_text'=>$button_text));
         $email ->to($userdata['User']['username']);
         $email->subject($subject);
         return($email->send());

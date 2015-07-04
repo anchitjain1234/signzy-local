@@ -11,6 +11,10 @@ class Compmember extends AppModel{
             'type' => 'string' ,
             'null' => 'false'
         ),
+        'status' => array(
+            'type' => 'string' ,
+            'null' => 'false'
+        ),
         'created' => array(
             'type' => 'timestamp',
             'null' => 'false'

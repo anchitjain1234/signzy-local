@@ -15,3 +15,4 @@ $config['upload_location_url'] = '/home/anchit/uploads/';
 $config['legal_head'] = '1';
 $config['auth_sign'] = '2';
 $config['unauth_sign'] = '0';
+$config['rejected_sign'] = '-1';
