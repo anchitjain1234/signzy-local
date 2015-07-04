@@ -64,21 +64,39 @@ class DocumentsController extends AppController {
 
         $parameters = array(
             'fields' => array('did'),
-            'conditions' => array('uid' => $uid),
+            'conditions' => array('uid' => $uid)
         );
         $coldata = $this->Col->find('all', $parameters);
 
+        $this->loadModel('Compmember');
+        debug($coldata);
         if ($coldata) {
             foreach ($coldata as $col):
 
-                $parameters = array(
-                    'conditions' => array('id' => $col['Col']['did']),
-                );
+                if (isset($col['Col']['cid'])) {
+                    $status = array();
+                    array_push($status, array('status' => Configure::read('legal_head')));
+                    array_push($status, array('status' => Configure::read('auth_sign')));
+                    $authorized_check = $this->Compmember->find('count', array('conditions' => array('cid' => $col['Col']['cid'], 'uid' => $col['Col']['uid'], '$or' => $status)));
+                    if ($authorized_check != 0) {
+                        $parameters = array(
+                            'conditions' => array('id' => $col['Col']['did']),
+                        );
 
-                $doc_data = $this->Document->find('first', $parameters);
-                $docs_with_timeaskey[$doc_data['Document']['modified']->sec] = $doc_data;
-                array_push($user_documents_data, $doc_data);
+                        $doc_data = $this->Document->find('first', $parameters);
+                        $docs_with_timeaskey[$doc_data['Document']['modified']->sec] = $doc_data;
+                        array_push($user_documents_data, $doc_data);
+                    }
+                } else {
+                    $parameters = array(
+                        'conditions' => array('id' => $col['Col']['did']),
+                    );
 
+                    $doc_data = $this->Document->find('first', $parameters);
+                    debug($doc_data);
+                    $docs_with_timeaskey[$doc_data['Document']['modified']->sec] = $doc_data;
+                    array_push($user_documents_data, $doc_data);
+                }
             endforeach;
         }
         krsort($docs_with_timeaskey);
@@ -121,8 +139,8 @@ class DocumentsController extends AppController {
             $original_name = $this->request->data['doc_org_name'];
             $size = $this->request->data['doc_size'];
             $type = $this->request->data['doc_type'];
-            
-            $owner_data = $this->User->find('first',array('conditions'=>array('id'=>CakeSession::read('Auth.User.id'))));
+
+            $owner_data = $this->User->find('first', array('conditions' => array('id' => CakeSession::read('Auth.User.id'))));
             /*
              * Checking if file with name provided exists in location or not.
              */
@@ -311,9 +329,9 @@ class DocumentsController extends AppController {
                                             if ($comp_member['Compmember']['status'] === Configure::read('legal_head')) {
                                                 $user_info = $this->User->find('first', array('conditions' => array('id' => $comp_member['Compmember']['uid'])));
                                                 $title = 'Permission for Signing';
-                                                $link = Router::url(array('controller' => 'compmember', 'action' => 'authorise_user',$company_info_from_db[$companies_info[$email]]['Company']['id']), true);
+                                                $link = Router::url(array('controller' => 'compmember', 'action' => 'authorise_user', $company_info_from_db[$companies_info[$email]]['Company']['id']), true);
                                                 $subject = 'Authorising user for document signing';
-                                                $content = $userdata['User']['name']." has requested to sign on your company behalf.Click on below button to authorise "
+                                                $content = $userdata['User']['name'] . " has requested to sign on your company behalf.Click on below button to authorise "
                                                         . "users for signing the document.";
                                                 $button_text = 'Authorize users';
                                                 $this->send_general_email($user_info, $link, $title, $content, $subject, $button_text);
@@ -333,7 +351,7 @@ class DocumentsController extends AppController {
                                                         , "docuid" => $docid['Document']['id']])
                                                         , true);
                                         $subject = 'Authoirzed Signatory granting request';
-                                        $content = $owner_data['User']['name']." has requested for you to sign on ".$company_info_from_db[$companies_info[$email]]['Company']['name']." behalf.Wait for your authorisation from that "
+                                        $content = $owner_data['User']['name'] . " has requested for you to sign on " . $company_info_from_db[$companies_info[$email]]['Company']['name'] . " behalf.Wait for your authorisation from that "
                                                 . "company.Click below button to send email again to company legal head for granting access.";
                                         $button_text = "Sign Document";
                                         $this->send_general_email($userdata, $link, $title, $content, $subject, $button_text);
@@ -477,7 +495,7 @@ class DocumentsController extends AppController {
                 )
             );
             $coldata = $this->Col->find('first', $parameters);
-            
+
             /*
              * Add code here is the user is unauthorised signatory of the comopany
              */
@@ -485,23 +503,19 @@ class DocumentsController extends AppController {
                 /*
                  * If user id signing on behalf of company
                  */
-                if(isset($coldata['Col']['cid']))
-                {
+                if (isset($coldata['Col']['cid'])) {
                     /*
                      * Checking if user is authorized to sign or not.
                      */
                     $this->loadModel('Compmember');
-                    $authorized_check = $this->Compmember->find('count',array('conditions'=>array('cid'=>$coldata['Col']['cid'] , 'uid' => CakeSession::read('Auth.User.id') , 'status' =>Configure::read('auth_sign'))));
+                    $authorized_check = $this->Compmember->find('count', array('conditions' => array('cid' => $coldata['Col']['cid'], 'uid' => CakeSession::read('Auth.User.id'), 'status' => Configure::read('auth_sign'))));
                     $this->loadModel('Company');
-                    $company_info = $this->Company->find('first',array('conditions'=>array('id'=>$coldata['Col']['cid'])));
-                    $this->set('company_info',$company_info);
-                    if($authorized_check === 0)
-                    {
-                        $this->set('unauthorized',true);
+                    $company_info = $this->Company->find('first', array('conditions' => array('id' => $coldata['Col']['cid'])));
+                    $this->set('company_info', $company_info);
+                    if ($authorized_check === 0) {
+                        $this->set('unauthorized', true);
                         $this->render();
-                    }
-                    else
-                    {
+                    } else {
                         $this->set('document', $this->Document->findById($docuid));
                         $this->render();
                     }
@@ -1058,9 +1072,22 @@ class DocumentsController extends AppController {
              * FIrst pushing ownerid into colids.
              */
             array_push($colids, $docinfo['Document']['ownerid']);
-
             foreach ($cols as $col):
-                array_push($colids, $col['Col']['uid']);
+                if (isset($col['Col']['cid'])) {
+                    /*
+                     * Checking if user is authorized to sign or not on behalf of company.
+                     */
+                    $this->loadModel('Compmember');
+                    $status = array();
+                    array_push($status, array('status' => Configure::read('legal_head')));
+                    array_push($status, array('status' => Configure::read('auth_sign')));
+                    $authorized_check = $this->Compmember->find('count', array('conditions' => array('cid' => $col['Col']['cid'], 'uid' => $col['Col']['uid'], '$or' => $status)));
+                    if ($authorized_check != 0) {
+                        array_push($colids, $col['Col']['uid']);
+                    }
+                } else {
+                    array_push($colids, $col['Col']['uid']);
+                }
             endforeach;
         }
         /*
@@ -1124,10 +1151,23 @@ class DocumentsController extends AppController {
             array_push($colids, $docinfo['Document']['ownerid']);
 
             foreach ($cols as $col):
-                array_push($colids, $col['Col']['uid']);
+                if (isset($col['Col']['cid'])) {
+                    /*
+                     * Checking if user is authorized to sign or not on behalf of company.
+                     */
+                    $this->loadModel('Compmember');
+                    $status = array();
+                    array_push($status, array('status' => Configure::read('legal_head')));
+                    array_push($status, array('status' => Configure::read('auth_sign')));
+                    $authorized_check = $this->Compmember->find('count', array('conditions' => array('cid' => $col['Col']['cid'], 'uid' => $col['Col']['uid'], '$or' => $status)));
+                    if ($authorized_check != 0) {
+                        array_push($colids, $col['Col']['uid']);
+                    }
+                } else {
+                    array_push($colids, $col['Col']['uid']);
+                }
             endforeach;
-        }
-        else {
+        } else {
             throw new NotFoundException(__('Invalid URL'));
         }
 
