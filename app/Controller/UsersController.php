@@ -107,13 +107,13 @@ class UsersController extends AppController {
                                         'action' => 'verify',
                                         '?' => [
                                             'username' => $this->request->data['User']['username'], 'token' => $this->request->data['User']['token'],],), true);
-                            //$this->sendemail('signupemail', 'notification_email_layout', $this->request->data, $email_verification_link, 'Verification email');
+                            $this->sendemail('signupemail', 'notification_email_layout', $this->request->data, $email_verification_link, 'Verification email');
                             /*
                               Enter code here for case when email sending is failed.
                              */
                             $this->Session->setFlash(__('Signup successfull.Please check your mailbox for verification mail(Dont forget to check SPAM also).'), 'flash_success');
 
-                            //return $this->redirect(array('action' => 'login'));
+                            return $this->redirect(array('action' => 'login'));
                         } else {
                             $this->Session->setFlash("Can't save data right now.Please try again later.", 'flash_error');
                         }

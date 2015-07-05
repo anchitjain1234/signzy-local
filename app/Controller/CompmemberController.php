@@ -112,7 +112,7 @@ class CompmemberController extends AppController {
             /*
              * Send email to legal heads that some users have been added as authorized signatory.
              */
-            $legal_head_ids = $this->Compmember->find('first', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
+            $legal_head_ids = $this->Compmember->find('all', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
             foreach ($legal_head_ids as $legal_head):
                 $this->log('legal_Head');
                 $this->log($legal_head);
@@ -178,11 +178,11 @@ class CompmemberController extends AppController {
             /*
              * Send email to legal heads that some users have been added as authorized signatory.
              */
-            $legal_head_ids = $this->Compmember->find('first', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
+            $legal_head_ids = $this->Compmember->find('all', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
             foreach ($legal_head_ids as $legal_head):
-                $this->log('legal_Head');
-                $this->log($legal_head);
                 $legal_head_info = $this->User->find('first', array('conditions' => array('id' => $legal_head['Compmember']['uid'])));
+                $this->log('legal_Head_info');
+                $this->log($legal_head_info);
                 $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
                 $subject = 'Signatories updated for ' . $companyinfo['Company']['name'];
                 $title = 'Signatories updated';
@@ -196,10 +196,9 @@ class CompmemberController extends AppController {
     }
 
     public function remind_leagal_heads() {
+        $this->request->onlyAllow('ajax');
         
         if ($this->request->is('post')) {
-
-            $this->request->onlyAllow('ajax');
             $this->autorender = false;
             $this->layout = false;
 
@@ -211,6 +210,8 @@ class CompmemberController extends AppController {
             }
 
             $userinfo = $this->User->find('first', array('conditions' => array('id' => $uid)));
+            $this->log('userinfo');
+            $this->log($userinfo);
             $this->loadModel('Company');
             $comp_info = $this->Company->find('first', array('conditions' => array('id' => $cid)));
 
@@ -219,7 +220,8 @@ class CompmemberController extends AppController {
             }
 
             $legal_heads = $this->Compmember->find('all', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
-
+            $this->log('legal_heads');
+            $this->log($legal_heads);
             if (!isset($legal_heads) || count($legal_heads) === 0) {
                 /*
                  * Case when there are no legal heads or maybe they have not verified that they are legal head
@@ -231,9 +233,11 @@ class CompmemberController extends AppController {
                 foreach ($legal_heads as $legal_head):
                     array_push($legal_head_ids, array('_id' => new MongoId($legal_head['Compmember']['uid'])));
                 endforeach;
-
-                $legal_heads_info = $this->Users->find('all', array('conditions' => array('$or' => $legal_head_ids)));
-
+                $this->log('legal heads ids');
+                $this->log($legal_head_ids);
+                $legal_heads_info = $this->User->find('all', array('conditions' => array('$or' => $legal_head_ids)));
+                $this->log('legal heads info');
+                $this->log($legal_heads_info);
                 foreach ($legal_heads_info as $head) {
                     $link = Router::url(array('controller' => 'compmember', 'action' => 'authorise_user', $cid), true);
                     $title = $userinfo['User']['name'] . ' authorization';

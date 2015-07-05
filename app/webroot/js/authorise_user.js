@@ -30,7 +30,6 @@ jQuery(document).ready(function () {
             method: "POST",
             data: {"ids": JSON.stringify(ids_checked), "cid": $('.table-hover').attr('id')}
         }).success(function (res) {
-            res = JSON.parse(res);
             console.log(res);
             if (res['success'])
             {
@@ -60,7 +59,7 @@ jQuery(document).ready(function () {
                                           <strong>Error!</strong>Unknown error.");
                 }
             }
-        }).error(function (res) {
+        }).fail(function (res) {
             $('#alertdiv').append("<div id=\"alert\"></div>");
             $('#alert').addClass("alert alert-danger");
             $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
@@ -74,7 +73,6 @@ jQuery(document).ready(function () {
             method: "POST",
             data: {"ids": JSON.stringify(ids_checked), "cid": $('.table-hover').attr('id')}
         }).success(function (res) {
-            res = JSON.parse(res);
             console.log(res);
             if (res['success'])
             {

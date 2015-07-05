@@ -63,16 +63,13 @@ class DocumentsController extends AppController {
         $this->loadModel('Col');
 
         $parameters = array(
-            'fields' => array('did'),
             'conditions' => array('uid' => $uid)
         );
         $coldata = $this->Col->find('all', $parameters);
 
         $this->loadModel('Compmember');
-        debug($coldata);
         if ($coldata) {
             foreach ($coldata as $col):
-
                 if (isset($col['Col']['cid'])) {
                     $status = array();
                     array_push($status, array('status' => Configure::read('legal_head')));
@@ -93,7 +90,6 @@ class DocumentsController extends AppController {
                     );
 
                     $doc_data = $this->Document->find('first', $parameters);
-                    debug($doc_data);
                     $docs_with_timeaskey[$doc_data['Document']['modified']->sec] = $doc_data;
                     array_push($user_documents_data, $doc_data);
                 }

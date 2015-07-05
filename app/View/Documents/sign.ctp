@@ -3,10 +3,10 @@
     <?php
     if (isset($unauthorized) && $unauthorized) {
         ?>
-        <div class="alertdiv"></div>
+        <div id="alertdiv"></div>
         <div class="row">
             <h1 class="compid" id="<?php echo $company_info['Company']['id']; ?>">You are not authorized to sign on <?php echo $company_info['Company']['name'] ?>'s behalf.</h1>
-            <h4 class="userid" id="<?php echo $uid; ?>">Click <?php echo $this->Html->link('here', array('controller' => 'compmember', 'action' => 'remind_leagal_heads'), array('id' => 'remind_heads')); ?> to resend emails to legal heads to make you authorized signatory.</h4>
+            <h4 class="userid" id="<?php echo $userid; ?>">Click <a href="#" id="remind_heads">here</a> to resend emails to legal heads to make you authorized signatory.</h4>
         </div>
     </div>
 
