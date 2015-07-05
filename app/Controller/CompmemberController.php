@@ -7,6 +7,7 @@
  */
 App::uses('AppController', 'Controller');
 App::uses('CakeEmail', 'Network/Email');
+
 class CompmemberController extends AppController {
 
     public $layout = 'insidelayout';
@@ -48,16 +49,15 @@ class CompmemberController extends AppController {
                     array_push($unauthorised_and_unrejected_signs_userids, array('_id' => new MongoId($unauthorised_and_unrejected_sign['Compmember']['uid'])));
                 }
             endforeach;
-            if(isset($unauthorised_and_unrejected_sign) && count($unauthorised_and_unrejected_sign) > 0)
-            {
+            if (isset($unauthorised_and_unrejected_sign) && count($unauthorised_and_unrejected_sign) > 0) {
                 $userinfo = $this->User->find('all', array('conditions' => array('$or' => $unauthorised_and_unrejected_signs_userids)));
                 $this->set('unauthorised_signs', $userinfo);
             }
-            
+
             $this->loadModel('Company');
-            $company_info = $this->Company->find('first',array('conditions'=>array('id'=>$cid)));
-            $this->set('company_info',$company_info);
-            $this->set('cid',$cid);
+            $company_info = $this->Company->find('first', array('conditions' => array('id' => $cid)));
+            $this->set('company_info', $company_info);
+            $this->set('cid', $cid);
         }
     }
 
@@ -71,39 +71,33 @@ class CompmemberController extends AppController {
             $ids = json_decode($this->request->data['ids']);
             $cid = $this->request->data['cid'];
             $this->loadModel('Company');
-            $companyinfo = $this->Company->find('first',array('conditions'=>array('id'=>$cid)));
-            
+            $companyinfo = $this->Company->find('first', array('conditions' => array('id' => $cid)));
+
             foreach ($ids as $id):
-                $existing_row = $this->Compmember->find('first',array('conditions' => array('cid'=>$cid,'uid'=>$id,'status'=>Configure::read('unauth_sign'))));
-                if(isset($existing_row) && $existing_row)
-                {
+                $existing_row = $this->Compmember->find('first', array('conditions' => array('cid' => $cid, 'uid' => $id, 'status' => Configure::read('unauth_sign'))));
+                if (isset($existing_row) && $existing_row) {
                     $this->Compmember->id = $existing_row['Compmember']['id'];
-                    $this->Compmember->set('status',Configure::read('auth_sign'));
-                    if($this->Compmember->save())
-                    {
+                    $this->Compmember->set('status', Configure::read('auth_sign'));
+                    if ($this->Compmember->save()) {
                         //Sending Confirmation email to the user that he has been confirmed and now can sign the document with the link provided
                         //in previous emails.
-                        $userdata=$this->User->find('first',array('conditions'=>array('id'=>$id)));
+                        $userdata = $this->User->find('first', array('conditions' => array('id' => $id)));
                         $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
-                        $subject = 'You are now authorized signatory for '.$companyinfo['Company']['name'];
+                        $subject = 'You are now authorized signatory for ' . $companyinfo['Company']['name'];
                         $title = 'Authorized signatory confirmed';
-                        $content = 'Congrats! You are now authorized signatory for '.$companyinfo['Company']['name'].' .You can '
-                                . 'now sign the documents of which you were assigned as signatory on behalf of '.$companyinfo['Company']['name'].
+                        $content = 'Congrats! You are now authorized signatory for ' . $companyinfo['Company']['name'] . ' .You can '
+                                . 'now sign the documents of which you were assigned as signatory on behalf of ' . $companyinfo['Company']['name'] .
                                 '.Check your previous emails to sign those documents or contact the document owner to resend the signing link.';
                         $button_text = 'Visit Verysure dashboard';
                         $this->send_general_email($userdata, $link, $title, $content, $subject, $button_text);
-                    }
-                    else
-                    {
+                    } else {
                         /*
                          * Case when data can not be updated.
                          */
                         echo '{"error":1}';
                         exit;
                     }
-                }
-                else
-                {
+                } else {
                     /*
                      * Case when user is not present as unauthorized signatory.
                      */
@@ -114,19 +108,19 @@ class CompmemberController extends AppController {
             /*
              * All work done successfully.
              */
-            
+
             /*
              * Send email to legal heads that some users have been added as authorized signatory.
              */
-            $legal_head_ids = $this->Compmember->find('first',array('conditions' => array('cid'=>$cid,'status'=>Configure::read('legal_head'))));
-            foreach($legal_head_ids as $legal_head):
+            $legal_head_ids = $this->Compmember->find('first', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
+            foreach ($legal_head_ids as $legal_head):
                 $this->log('legal_Head');
                 $this->log($legal_head);
-                $legal_head_info = $this->User->find('first',array('conditions' => array('id'=>$legal_head['Compmember']['uid'])));
+                $legal_head_info = $this->User->find('first', array('conditions' => array('id' => $legal_head['Compmember']['uid'])));
                 $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
-                $subject = 'Signatories updated for '.$companyinfo['Company']['name'];
+                $subject = 'Signatories updated for ' . $companyinfo['Company']['name'];
                 $title = 'Signatories updated';
-                $content = 'Signatories have been updated for '.$companyinfo['Company']['name'].". Click below to visit your admin page"
+                $content = 'Signatories have been updated for ' . $companyinfo['Company']['name'] . ". Click below to visit your admin page"
                         . "to view the changes.";
                 $button_text = "Visit admin page";
                 $this->send_general_email($legal_head_info, $link, $title, $content, $subject, $button_text);
@@ -134,7 +128,7 @@ class CompmemberController extends AppController {
             echo '{"success":true}';
         }
     }
-    
+
     public function reject() {
         if ($this->request->is('post')) {
 
@@ -145,37 +139,31 @@ class CompmemberController extends AppController {
             $ids = json_decode($this->request->data['ids']);
             $cid = $this->request->data['cid'];
             $this->loadModel('Company');
-            $companyinfo = $this->Company->find('first',array('conditions'=>array('id'=>$cid)));
-            
+            $companyinfo = $this->Company->find('first', array('conditions' => array('id' => $cid)));
+
             foreach ($ids as $id):
-                $existing_row = $this->Compmember->find('first',array('conditions' => array('cid'=>$cid,'uid'=>$id,'status'=>Configure::read('unauth_sign'))));
-                if(isset($existing_row) && $existing_row)
-                {
+                $existing_row = $this->Compmember->find('first', array('conditions' => array('cid' => $cid, 'uid' => $id, 'status' => Configure::read('unauth_sign'))));
+                if (isset($existing_row) && $existing_row) {
                     $this->Compmember->id = $existing_row['Compmember']['id'];
-                    $this->Compmember->set('status',Configure::read('rejected_sign'));
-                    if($this->Compmember->save())
-                    {
+                    $this->Compmember->set('status', Configure::read('rejected_sign'));
+                    if ($this->Compmember->save()) {
                         //Sending Confirmation email to the user that he has been confirmed and now can sign the document with the link provided
                         //in previous emails.
-                        $userdata=$this->User->find('first',array('conditions'=>array('id'=>$id)));
+                        $userdata = $this->User->find('first', array('conditions' => array('id' => $id)));
                         $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
-                        $subject = 'Authorized signatory for '.$companyinfo['Company']['name'].' declined.';
+                        $subject = 'Authorized signatory for ' . $companyinfo['Company']['name'] . ' declined.';
                         $title = 'Authorized signatory declined';
-                        $content = 'Unfortunately legal head of '.$companyinfo['Company']['name'].' declined you for authorized signatory.';
+                        $content = 'Unfortunately legal head of ' . $companyinfo['Company']['name'] . ' declined you for authorized signatory.';
                         $button_text = 'Visit Verysure dashboard';
                         $this->send_general_email($userdata, $link, $title, $content, $subject, $button_text);
-                    }
-                    else
-                    {
+                    } else {
                         /*
                          * Case when data can not be updated.
                          */
                         echo '{"error":1}';
                         exit;
                     }
-                }
-                else
-                {
+                } else {
                     /*
                      * Case when user is not present as unauthorized signatory.
                      */
@@ -183,22 +171,22 @@ class CompmemberController extends AppController {
                     exit;
                 }
             endforeach;
-             /*
+            /*
              * All work done successfully.
              */
-            
+
             /*
              * Send email to legal heads that some users have been added as authorized signatory.
              */
-            $legal_head_ids = $this->Compmember->find('first',array('conditions' => array('cid'=>$cid,'status'=>Configure::read('legal_head'))));
-            foreach($legal_head_ids as $legal_head):
+            $legal_head_ids = $this->Compmember->find('first', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
+            foreach ($legal_head_ids as $legal_head):
                 $this->log('legal_Head');
                 $this->log($legal_head);
-                $legal_head_info = $this->User->find('first',array('conditions' => array('id'=>$legal_head['Compmember']['uid'])));
+                $legal_head_info = $this->User->find('first', array('conditions' => array('id' => $legal_head['Compmember']['uid'])));
                 $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
-                $subject = 'Signatories updated for '.$companyinfo['Company']['name'];
+                $subject = 'Signatories updated for ' . $companyinfo['Company']['name'];
                 $title = 'Signatories updated';
-                $content = 'Signatories have been updated for '.$companyinfo['Company']['name'].". Click below to visit your admin page"
+                $content = 'Signatories have been updated for ' . $companyinfo['Company']['name'] . ". Click below to visit your admin page"
                         . "to view the changes.";
                 $button_text = "Visit admin page";
                 $this->send_general_email($legal_head_info, $link, $title, $content, $subject, $button_text);
@@ -206,39 +194,59 @@ class CompmemberController extends AppController {
             echo '{"success":true}';
         }
     }
-    
-    public function remind_leagal_heads($cid = null)
-    {
-        if (!$cid) {
-            throw new NotFoundException(__('Invalid URL'));
-        }
-        
-        $this->loadModel('Company');
-        $comp_info = $this->Company->find('count', array('conditions' => array('id' => $cid)));
 
-        if (!isset($comp_info) || $comp_info === 0) {
-            throw new NotFoundException(__('Invalid URL'));
-        }
+    public function remind_leagal_heads() {
         
-        $legal_heads = $this->Compmember->find('all', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
-        
-        if (!isset($legal_heads) || count($legal_heads) === 0)
-        {
-            /*
-             * Case when there are no legal heads or maybe they have not verified that they are legal head
-             */
-            echo '{"error":1}';
-            exit;
-        }
-        else
-        {
-            $legal_head_ids=[];
-            foreach ($legal_heads as $legal_head):
-                array_push($legal_head_ids, array('_id' => new MongoId($legal_head['Compmember']['uid'])));
-            endforeach;
-            $legal_heads_info = [];
-            $temporary_info = $this->Users->find('all',array('conditions'=>array('$or'=>$legal_head_ids)));
-            debug($temporary_info);
+        if ($this->request->is('post')) {
+
+            $this->request->onlyAllow('ajax');
+            $this->autorender = false;
+            $this->layout = false;
+
+            $uid = $this->request->data['uid'];
+            $cid = $this->request->data['cid'];
+            
+            if (!$cid) {
+                throw new NotFoundException(__('Invalid URL'));
+            }
+
+            $userinfo = $this->User->find('first', array('conditions' => array('id' => $uid)));
+            $this->loadModel('Company');
+            $comp_info = $this->Company->find('first', array('conditions' => array('id' => $cid)));
+
+            if (!isset($comp_info)) {
+                throw new NotFoundException(__('Invalid URL'));
+            }
+
+            $legal_heads = $this->Compmember->find('all', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
+
+            if (!isset($legal_heads) || count($legal_heads) === 0) {
+                /*
+                 * Case when there are no legal heads or maybe they have not verified that they are legal head
+                 */
+                echo '{"error":1}';
+                exit;
+            } else {
+                $legal_head_ids = [];
+                foreach ($legal_heads as $legal_head):
+                    array_push($legal_head_ids, array('_id' => new MongoId($legal_head['Compmember']['uid'])));
+                endforeach;
+
+                $legal_heads_info = $this->Users->find('all', array('conditions' => array('$or' => $legal_head_ids)));
+
+                foreach ($legal_heads_info as $head) {
+                    $link = Router::url(array('controller' => 'compmember', 'action' => 'authorise_user', $cid), true);
+                    $title = $userinfo['User']['name'] . ' authorization';
+                    $content = $userinfo['User']['name'] . ' has asked to remind you to authorize him for signing on '
+                            . $comp_info['Company']['name'] . '\'s behalf.Please click below buton to authrozie or reject him'
+                            . 'for signing.';
+                    $subject = 'Authorization reminder from ' . $userinfo['User']['name'];
+                    $button_text = 'Check authorization request';
+                    $this->send_general_email($head, $link, $title, $content, $subject, $button_text);
+                }
+                echo '{"success":1}';
+                exit;
+            }
         }
     }
 
