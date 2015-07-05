@@ -30,34 +30,16 @@ jQuery(document).ready(function () {
             method: "POST",
             data: {"ids": JSON.stringify(ids_checked), "cid": $('.table-hover').attr('id')}
         }).success(function (res) {
-            console.log(res);
-            if (res['success'])
-            {
-                //location.reload();
-                $('#alertdiv').append("<div id=\"alert\"></div>");
-                $('#alert').addClass("alert alert-success");
-                $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
-                                          <strong>Success!</strong>Signatories authorized successfully.");
-            }
-            else
+            if(res['error'] === '')
             {
                 $('#alertdiv').append("<div id=\"alert\"></div>");
                 $('#alert').addClass("alert alert-danger");
-                if (res["error"] === 1)
-                {
-                    $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
-                                          <strong>Error!</strong> Data can not be updated.");
-                }
-                else if (res["error"] === 2)
-                {
-                    $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
-                                          <strong>Error!</strong> Data manipulated.");
-                }
-                else
-                {
-                    $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
                                           <strong>Error!</strong>Unknown error.");
-                }
+            }
+            else
+            {
+                location.reload();
             }
         }).fail(function (res) {
             $('#alertdiv').append("<div id=\"alert\"></div>");
@@ -73,34 +55,16 @@ jQuery(document).ready(function () {
             method: "POST",
             data: {"ids": JSON.stringify(ids_checked), "cid": $('.table-hover').attr('id')}
         }).success(function (res) {
-            console.log(res);
-            if (res['success'])
-            {
-                //location.reload();
-                $('#alertdiv').append("<div id=\"alert\"></div>");
-                $('#alert').addClass("alert alert-success");
-                $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
-                                          <strong>Success!</strong>Signatories rejected successfully.");
-            }
-            else
+            if(res['error'] === '')
             {
                 $('#alertdiv').append("<div id=\"alert\"></div>");
                 $('#alert').addClass("alert alert-danger");
-                if (res["error"] === 1)
-                {
-                    $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
-                                          <strong>Error!</strong> Data can not be updated.");
-                }
-                else if (res["error"] === 2)
-                {
-                    $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
-                                          <strong>Error!</strong> Data manipulated.");
-                }
-                else
-                {
-                    $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
                                           <strong>Error!</strong>Unknown error.");
-                }
+            }
+            else
+            {
+                location.reload();
             }
         }).error(function (res) {
             $('#alertdiv').append("<div id=\"alert\"></div>");

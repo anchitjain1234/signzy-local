@@ -94,14 +94,16 @@ class CompmemberController extends AppController {
                         /*
                          * Case when data can not be updated.
                          */
-                        echo '{"error":1}';
+                        echo '{"error":true}';
+                        $this->Session->setFlash('Data can not be updated.','flash_error');
                         exit;
                     }
                 } else {
                     /*
                      * Case when user is not present as unauthorized signatory.
                      */
-                    echo '{"error":2}';
+                    echo '{"error":true}';
+                    $this->Session->setFlash('Data manipulated.','flash_error');
                     exit;
                 }
             endforeach;
@@ -125,7 +127,8 @@ class CompmemberController extends AppController {
                 $button_text = "Visit admin page";
                 $this->send_general_email($legal_head_info, $link, $title, $content, $subject, $button_text);
             endforeach;
-            echo '{"success":true}';
+            echo '{"error":false}';
+            $this->Session->setFlash('Signatories authorized successfully.','flash_success');
         }
     }
 
@@ -160,14 +163,16 @@ class CompmemberController extends AppController {
                         /*
                          * Case when data can not be updated.
                          */
-                        echo '{"error":1}';
+                        echo '{"error":true}';
+                        $this->Session->setFlash('Data can not be updated.','flash_error');
                         exit;
                     }
                 } else {
                     /*
                      * Case when user is not present as unauthorized signatory.
                      */
-                    echo '{"error":2}';
+                    echo '{"error":true}';
+                    $this->Session->setFlash('Data manipulated.','flash_error');
                     exit;
                 }
             endforeach;
@@ -191,7 +196,8 @@ class CompmemberController extends AppController {
                 $button_text = "Visit admin page";
                 $this->send_general_email($legal_head_info, $link, $title, $content, $subject, $button_text);
             endforeach;
-            echo '{"success":true}';
+            echo '{"error":false}';
+            $this->Session->setFlash('Signatories authorized successfully.','flash_success');
         }
     }
 
