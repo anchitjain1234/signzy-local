@@ -25,19 +25,20 @@ jQuery(document).ready(function () {
     });
 
     $('#authorize_user_btn').click(function () {
-        console.log(JSON.stringify(ids_checked));
-        console.log(window.location);
         $.ajax({
             url: '../authorize.json',
             method: "POST",
             data: {"ids": JSON.stringify(ids_checked), "cid": $('.table-hover').attr('id')}
         }).success(function (res) {
-            console.log('success');
             res = JSON.parse(res);
-
+            console.log(res);
             if (res['success'])
             {
-                window.location = "../../dashboard/index";
+                //location.reload();
+                $('#alertdiv').append("<div id=\"alert\"></div>");
+                $('#alert').addClass("alert alert-success");
+                $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                                          <strong>Success!</strong>Signatories authorized successfully.");
             }
             else
             {
@@ -63,7 +64,51 @@ jQuery(document).ready(function () {
             $('#alertdiv').append("<div id=\"alert\"></div>");
             $('#alert').addClass("alert alert-danger");
             $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                                          <strong>Error!</strong>Network error.Please check your intenet connection.");
+        });
+    });
+    
+    $('#reject_user_btn').click(function () {
+        $.ajax({
+            url: '../reject.json',
+            method: "POST",
+            data: {"ids": JSON.stringify(ids_checked), "cid": $('.table-hover').attr('id')}
+        }).success(function (res) {
+            res = JSON.parse(res);
+            console.log(res);
+            if (res['success'])
+            {
+                //location.reload();
+                $('#alertdiv').append("<div id=\"alert\"></div>");
+                $('#alert').addClass("alert alert-success");
+                $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                                          <strong>Success!</strong>Signatories rejected successfully.");
+            }
+            else
+            {
+                $('#alertdiv').append("<div id=\"alert\"></div>");
+                $('#alert').addClass("alert alert-danger");
+                if (res["error"] === 1)
+                {
+                    $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                                          <strong>Error!</strong> Data can not be updated.");
+                }
+                else if (res["error"] === 2)
+                {
+                    $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                                          <strong>Error!</strong> Data manipulated.");
+                }
+                else
+                {
+                    $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
                                           <strong>Error!</strong>Unknown error.");
+                }
+            }
+        }).error(function (res) {
+            $('#alertdiv').append("<div id=\"alert\"></div>");
+            $('#alert').addClass("alert alert-danger");
+            $('#alert').html("<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n\
+                                          <strong>Error!</strong>Network error.Please check your intenet connection.");
         });
     });
 });

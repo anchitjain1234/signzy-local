@@ -183,6 +183,62 @@ class CompmemberController extends AppController {
                     exit;
                 }
             endforeach;
+             /*
+             * All work done successfully.
+             */
+            
+            /*
+             * Send email to legal heads that some users have been added as authorized signatory.
+             */
+            $legal_head_ids = $this->Compmember->find('first',array('conditions' => array('cid'=>$cid,'status'=>Configure::read('legal_head'))));
+            foreach($legal_head_ids as $legal_head):
+                $this->log('legal_Head');
+                $this->log($legal_head);
+                $legal_head_info = $this->User->find('first',array('conditions' => array('id'=>$legal_head['Compmember']['uid'])));
+                $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
+                $subject = 'Signatories updated for '.$companyinfo['Company']['name'];
+                $title = 'Signatories updated';
+                $content = 'Signatories have been updated for '.$companyinfo['Company']['name'].". Click below to visit your admin page"
+                        . "to view the changes.";
+                $button_text = "Visit admin page";
+                $this->send_general_email($legal_head_info, $link, $title, $content, $subject, $button_text);
+            endforeach;
+            echo '{"success":true}';
+        }
+    }
+    
+    public function remind_leagal_heads($cid = null)
+    {
+        if (!$cid) {
+            throw new NotFoundException(__('Invalid URL'));
+        }
+        
+        $this->loadModel('Company');
+        $comp_info = $this->Company->find('count', array('conditions' => array('id' => $cid)));
+
+        if (!isset($comp_info) || $comp_info === 0) {
+            throw new NotFoundException(__('Invalid URL'));
+        }
+        
+        $legal_heads = $this->Compmember->find('all', array('conditions' => array('cid' => $cid, 'status' => Configure::read('legal_head'))));
+        
+        if (!isset($legal_heads) || count($legal_heads) === 0)
+        {
+            /*
+             * Case when there are no legal heads or maybe they have not verified that they are legal head
+             */
+            echo '{"error":1}';
+            exit;
+        }
+        else
+        {
+            $legal_head_ids=[];
+            foreach ($legal_heads as $legal_head):
+                array_push($legal_head_ids, array('_id' => new MongoId($legal_head['Compmember']['uid'])));
+            endforeach;
+            $legal_heads_info = [];
+            $temporary_info = $this->Users->find('all',array('conditions'=>array('$or'=>$legal_head_ids)));
+            debug($temporary_info);
         }
     }
 
