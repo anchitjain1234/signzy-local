@@ -201,7 +201,7 @@ class CompmemberController extends AppController {
                 $this->send_general_email($legal_head_info, $link, $title, $content, $subject, $button_text);
             endforeach;
             echo '{"error":false}';
-            $this->Session->setFlash('Signatories authorized successfully.','flash_success');
+            $this->Session->setFlash('Signatories rejected successfully.','flash_success');
         }
     }
 
