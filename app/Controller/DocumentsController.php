@@ -43,18 +43,20 @@ class DocumentsController extends AppController {
          * value.
          */
 
-        $docs_with_timeaskey = [];
+        $docs_with_timeaskey = array();
 
         $uid = CakeSession::read('Auth.User.id');
 
-        $parameters = array(
-            'conditions' => array('ownerid' => $uid),
-        );
-        $user_documents_data = $this->Document->find('all', $parameters);
-
-        foreach ($user_documents_data as $doc):
-            $docs_with_timeaskey[$doc['Document']['modified']->sec] = $doc;
-        endforeach;
+//        $parameters = array(
+//            'conditions' => array('ownerid' => $uid),
+//        );
+//        $user_documents_data = $this->Document->find('all', $parameters);
+//
+//        foreach ($user_documents_data as $doc):
+//            $docs_with_timeaskey[$doc['Document']['modified']->sec] = $doc;
+//        endforeach;
+        
+        $user_documents_data = array();
 
         /*
           Now finding documents in which user is a collabarator
@@ -109,7 +111,7 @@ class DocumentsController extends AppController {
 
         if ($this->request->is('post')) {
 
-            $this->request->onlyAllow('ajax');
+            $this->request->allowMethod('ajax');
             $this->autorender = false;
             $this->layout = false;
             
@@ -170,13 +172,30 @@ class DocumentsController extends AppController {
                     $this->Document->set('status', "0");
 
                     if ($this->Document->save()) {
-
+                        
+                        /*
+                         * Getting the document data.
+                         */
+                        $docid = $this->Document->find('first', array('conditions' => array('originalname' => $current_name)));
+                        
+                        /*
+                         * Also saving the document owner details in the col table with a different status.
+                         * This will help in checking document related to user details fast as we would not 
+                         * have to lookup in both documents and cols table , just we have to look in 
+                         * cols table.
+                         */
+                        $this->loadModel('Col');
+                        $this->Col->create();
+                        $this->Col->set('did', $docid['Document']['id']);
+                        $this->Col->set('status', Configure::read('doc_owner'));
+                        $this->Col->set('uid', CakeSession::read('Auth.User.id'));
+                        $this->Col->save();
+                        
                         /*
                          * Checking if any signatories are there or not.
                          */
 
                         if (count($emails) > 0) {
-                            $docid = $this->Document->find('first', array('conditions' => array('originalname' => $current_name)));
 
                             /*
                              * Checking if any of the emails goven in signatory is invalid or not.
@@ -202,9 +221,9 @@ class DocumentsController extends AppController {
                              * Information will be stored as key value. Key = Comoany Name , Value = Signatories.
                              *  
                              */
-                            $companies = [];
-                            $company_info_from_db = [];
-                            $company_member_info_from_db = [];
+                            $companies = array();
+                            $company_info_from_db = array();
+                            $company_member_info_from_db = array();
 
                             $status = array();
                             array_push($status, array('status' => Configure::read('legal_head')));
@@ -229,7 +248,6 @@ class DocumentsController extends AppController {
 
                             $this->log($company_info_from_db);
                             $this->log($company_member_info_from_db);
-                            $this->loadModel('Col');
                             $this->loadModel('User');
 
 
@@ -428,7 +446,7 @@ class DocumentsController extends AppController {
      */
 
     public function upload_ajax() {
-        $this->request->onlyAllow('ajax');
+        $this->request->allowMethod('ajax');
         $this->autorender = false;
         $this->layout = false;
 
