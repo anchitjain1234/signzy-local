@@ -17,7 +17,9 @@
 #################################
 /nbproject
 .idea
-
+.buildpath
+.project
+.settings/
 # OS generated files #
 ######################
 .DS_Store
