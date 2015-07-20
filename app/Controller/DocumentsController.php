@@ -1,8 +1,34 @@
 <?php
-
+require '../vendor/aws.phar';
 App::uses('CakeEmail', 'Network/Email');
 App::uses('Validation', 'Utility');
 
+$sharedConfig = [
+    'region'  => 'us-west-2',
+    'version' => 'latest'
+];
+
+$sdk = new Aws\Sdk($sharedConfig);
+
+$s3_client = $sdk->createS3();
+$sqs_client = $sdk->createSqs();
+
+
+$email_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_emails'));
+$email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
+
+$result = $sqs_client->setQueueAttributes(array(
+    'QueueUrl'   => $email_queue_localhost_url,
+    'Attributes' => array(
+        'VisibilityTimeout' => 2 * 60 * 60, // 2 min,
+        'ReceiveMessageWaitTimeSeconds' => 5,
+        'DelaySeconds' => 10
+    ),
+));
+
+//debug($result);
+//
+//debug($email_queue_localhost_url);
 class DocumentsController extends AppController {
 
     public $uses = array('Document');
