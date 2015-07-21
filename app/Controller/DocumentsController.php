@@ -1,34 +1,8 @@
 <?php
-require '../vendor/aws.phar';
+
 App::uses('CakeEmail', 'Network/Email');
 App::uses('Validation', 'Utility');
 
-$sharedConfig = [
-    'region'  => 'us-west-2',
-    'version' => 'latest'
-];
-
-$sdk = new Aws\Sdk($sharedConfig);
-
-$s3_client = $sdk->createS3();
-$sqs_client = $sdk->createSqs();
-
-
-$email_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_emails'));
-$email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
-
-$result = $sqs_client->setQueueAttributes(array(
-    'QueueUrl'   => $email_queue_localhost_url,
-    'Attributes' => array(
-        'VisibilityTimeout' => 2 * 60 * 60, // 2 min,
-        'ReceiveMessageWaitTimeSeconds' => 5,
-        'DelaySeconds' => 10
-    ),
-));
-
-//debug($result);
-//
-//debug($email_queue_localhost_url);
 class DocumentsController extends AppController {
 
     public $uses = array('Document');
@@ -81,7 +55,7 @@ class DocumentsController extends AppController {
 //        foreach ($user_documents_data as $doc):
 //            $docs_with_timeaskey[$doc['Document']['modified']->sec] = $doc;
 //        endforeach;
-        
+
         $user_documents_data = array();
 
         /*
@@ -140,22 +114,19 @@ class DocumentsController extends AppController {
             $this->request->allowMethod('ajax');
             $this->autorender = false;
             $this->layout = false;
-            
-            if(isset($this->request->data['emails']))
-            {
+
+            if (isset($this->request->data['emails'])) {
                 $emails = json_decode($this->request->data['emails']);
             }
-            
-            if(isset($this->request->data['company_info']))
-            {
+
+            if (isset($this->request->data['company_info'])) {
                 $companies_info = $this->request->data['company_info'];
             }
-            
-            if(isset($this->request->data['biometric_info']))
-            {
+
+            if (isset($this->request->data['biometric_info'])) {
                 $biometric_info = json_decode($this->request->data['biometric_info']);
             }
-            
+
 
             $current_name = $this->request->data['doc_name'];
 
@@ -198,12 +169,12 @@ class DocumentsController extends AppController {
                     $this->Document->set('status', "0");
 
                     if ($this->Document->save()) {
-                        
+
                         /*
                          * Getting the document data.
                          */
                         $docid = $this->Document->find('first', array('conditions' => array('originalname' => $current_name)));
-                        
+
                         /*
                          * Also saving the document owner details in the col table with a different status.
                          * This will help in checking document related to user details fast as we would not 
@@ -216,7 +187,7 @@ class DocumentsController extends AppController {
                         $this->Col->set('status', Configure::read('doc_owner'));
                         $this->Col->set('uid', CakeSession::read('Auth.User.id'));
                         $this->Col->save();
-                        
+
                         /*
                          * Checking if any signatories are there or not.
                          */
@@ -254,23 +225,22 @@ class DocumentsController extends AppController {
                             $status = array();
                             array_push($status, array('status' => Configure::read('legal_head')));
                             array_push($status, array('status' => Configure::read('auth_sign')));
-                            
-                            if(isset($companies_info))
-                            {
-                               foreach ($companies_info as $email => $company):
-                                if (!in_array($company, $companies)) {
-                                    $comp_info = $this->Company->find('first', array('conditions' => array('name' => $company)));
-                                    if (isset($comp_info) && $comp_info != '') {
-                                        array_push($companies, $company);
-                                        $company_info_from_db[$company] = $comp_info;
-                                        $company_member_info_from_db[$company] = $this->Compmember->find('all', array('conditions' => array('cid' => $comp_info['Company']['id'], '$or' => $status)));
-                                    } else {
-                                        throw new NotFoundException(__('Error while saving data.'));
+
+                            if (isset($companies_info)) {
+                                foreach ($companies_info as $email => $company):
+                                    if (!in_array($company, $companies)) {
+                                        $comp_info = $this->Company->find('first', array('conditions' => array('name' => $company)));
+                                        if (isset($comp_info) && $comp_info != '') {
+                                            array_push($companies, $company);
+                                            $company_info_from_db[$company] = $comp_info;
+                                            $company_member_info_from_db[$company] = $this->Compmember->find('all', array('conditions' => array('cid' => $comp_info['Company']['id'], '$or' => $status)));
+                                        } else {
+                                            throw new NotFoundException(__('Error while saving data.'));
+                                        }
                                     }
-                                }
-                            endforeach; 
+                                endforeach;
                             }
-                            
+
 
                             $this->log($company_info_from_db);
                             $this->log($company_member_info_from_db);
@@ -317,6 +287,21 @@ class DocumentsController extends AppController {
                                     }
                                 }
 
+                                $aws_sdk = $this->get_aws_sdk();
+                                $sqs_client = $aws_sdk->createSqs();
+
+                                $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_emails'));
+                                $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
+
+                                $sqs_client->setQueueAttributes(array(
+                                    'QueueUrl' => $email_queue_localhost_url,
+                                    'Attributes' => array(
+                                        'VisibilityTimeout' => 5,
+                                        'ReceiveMessageWaitTimeSeconds' => 5,
+                                        'DelaySeconds' => 0
+                                    ),
+                                ));
+
                                 /*
                                  * Add this unauthorised user as unauthorised signatory under company members table if he is not present 
                                  * as unauthorised user before. 
@@ -331,7 +316,7 @@ class DocumentsController extends AppController {
                                      * If this collabarator is already present as rejected signatory in Compmember than send the email to the 
                                      * document owner that this signatory is already rejected from the legal heads of the company.
                                      */
-                                    if (count($previously_present_check)!=0 && ($previously_present_check['Compmember']['status'] === Configure::read('rejected_sign'))) {
+                                    if (count($previously_present_check) != 0 && ($previously_present_check['Compmember']['status'] === Configure::read('rejected_sign'))) {
                                         $link = Router::url(array('controller' => 'documents', 'action' => 'edit', $company_info_from_db[$companies_info[$email]]['Company']['id']), true);
                                         $title = 'Signatory rejected';
                                         $subject = $userdata['User']['name'] . ' has been rejected from signining on ' . $company_info_from_db[$companies_info[$email]]['Company']['name'] . '\'s behalf';
@@ -340,7 +325,22 @@ class DocumentsController extends AppController {
                                                 . ' has been rejected by the company legal head(s).Please click the below button to edit your signatories and remove'
                                                 . 'the rejected signatories.';
                                         $button_text = 'Edit signatories';
-                                        $this->send_general_email($owner_data, $link, $title, $content, $subject, $button_text);
+//                                        $this->send_general_email($owner_data, $link, $title, $content, $subject, $button_text);
+                                        $email_to_be_sent = array();
+                                        $email_to_be_sent['link'] = $link;
+                                        $email_to_be_sent['title'] = $title;
+                                        $email_to_be_sent['subject'] = $subject;
+                                        $email_to_be_sent['content'] = $content;
+                                        $email_to_be_sent['button_text'] = $button_text;
+                                        $email_to_be_sent['user_username'] = $userdata['User']['username'];
+                                        $email_to_be_sent['user_name'] = $userdata['User']['name'];
+
+                                        $email_json = json_encode($email_to_be_sent);
+                                        $sqs_client->sendMessage(array(
+                                            'QueueUrl' => $email_queue_localhost_url,
+                                            'MessageBody' => $email_json,
+                                        ));
+//                                        exec("wget -qO- http://localhost/cakephp/users/send_email &> /dev/null &");
                                         continue;
                                     }
                                     /*
@@ -391,7 +391,22 @@ class DocumentsController extends AppController {
                                                         , "docuid" => $docid['Document']['id']])
                                                         , true);
 
-                                        $this->sendemail('sign_document_request', 'notification_email_layout', $userdata, $document_signing_link, 'Document Signing Request');
+//                                        $this->sendemail('sign_document_request', 'notification_email_layout', $userdata, $document_signing_link, 'Document Signing Request');
+                                        $email_to_be_sent = array();
+                                        $email_to_be_sent['link'] = $document_signing_link;
+                                        $email_to_be_sent['title'] = 'Document SIgning Request';
+                                        $email_to_be_sent['subject'] = 'Document Signing Request';
+                                        $email_to_be_sent['content'] = 'You have been requested by '.$owner_data['User']['name'].' to sign a document on our website.Please '
+                                                . 'click below button to view your document signing requests.';
+                                        $email_to_be_sent['button_text'] = 'View Document Signing Request';
+                                        $email_to_be_sent['user_username'] = $userdata['User']['username'];
+                                        $email_to_be_sent['user_name'] = $userdata['User']['name'];
+                                        $email_json = json_encode($email_to_be_sent);
+                                        $sqs_client->sendMessage(array(
+                                            'QueueUrl' => $email_queue_localhost_url,
+                                            'MessageBody' => $email_json,
+                                        ));
+//                                        exec("wget -qO- http://localhost/cakephp/users/send_email &> /dev/null &");
                                     } else {
                                         /*
                                          * Sending email to legal head(s) to ask permission for this collabarator to sign the document.
@@ -408,7 +423,25 @@ class DocumentsController extends AppController {
                                                 $content = $userdata['User']['name'] . " has requested to sign on" . $company_info_from_db[$companies_info[$email]]['Company']['name'] . ".Click on below button to authorise "
                                                         . "user for signing the document.";
                                                 $button_text = 'Authorize user';
-                                                $this->send_general_email($user_info, $link, $title, $content, $subject, $button_text);
+//                                                $this->send_general_email($user_info, $link, $title, $content, $subject, $button_text);
+                                                $email_to_be_sent = array();
+                                                $email_to_be_sent['link'] = $link;
+                                                $email_to_be_sent['title'] = $title;
+                                                $email_to_be_sent['subject'] = $subject;
+                                                $email_to_be_sent['content'] = $content;
+                                                $email_to_be_sent['button_text'] = $button_text;
+                                                $email_to_be_sent['user_username'] = $user_info['User']['username'];
+                                                $email_to_be_sent['user_name'] = $user_info['User']['name'];
+
+                                                $email_json = json_encode($email_to_be_sent);
+                                                $sqs_client->sendMessage(array(
+                                                    'QueueUrl' => $email_queue_localhost_url,
+                                                    'MessageBody' => $email_json,
+                                                ));
+//                                                exec("wget -qO- http://localhost/cakephp/users/send_email &> /dev/null &");
+//                                                $command = "php -f /var/www/myweb/image_resize.php";
+//
+//                                                exec( "$command > /dev/null &", $arrOutput );
                                             }
                                         endforeach;
 
@@ -428,14 +461,29 @@ class DocumentsController extends AppController {
                                         $content = $owner_data['User']['name'] . " has requested for you to sign on " . $company_info_from_db[$companies_info[$email]]['Company']['name'] . " behalf.Wait for your authorisation from that "
                                                 . "company.Click below button to send email again to company legal head for granting access.";
                                         $button_text = "Sign Document";
-                                        $this->send_general_email($userdata, $link, $title, $content, $subject, $button_text);
+//                                        $this->send_general_email($userdata, $link, $title, $content, $subject, $button_text);
+                                        $email_to_be_sent = array();
+                                        $email_to_be_sent['link'] = $link;
+                                        $email_to_be_sent['title'] = $title;
+                                        $email_to_be_sent['subject'] = $subject;
+                                        $email_to_be_sent['content'] = $content;
+                                        $email_to_be_sent['button_text'] = $button_text;
+                                        $email_to_be_sent['user_username'] = $userdata['User']['username'];
+                                        $email_to_be_sent['user_name'] = $userdata['User']['name'];
+
+                                        $email_json = json_encode($email_to_be_sent);
+                                        $sqs_client->sendMessage(array(
+                                            'QueueUrl' => $email_queue_localhost_url,
+                                            'MessageBody' => $email_json,
+                                        ));
+                                        
                                     }
                                 } else {
                                     echo '{"finaldocstatus":false,"error":2}';
                                 }
 
                             endforeach;
-
+                            exec("wget -qO- http://localhost/cakephp/users/send_email &> /dev/null &");
                             echo '{"finaldocstatus":true}';
                             $this->Session->setFlash(__('Document uploaded suceessfully and mails sent to all signatories'), 'flash_success');
                             exit;
