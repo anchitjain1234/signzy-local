@@ -317,29 +317,30 @@ class DocumentsController extends AppController {
                                      * document owner that this signatory is already rejected from the legal heads of the company.
                                      */
                                     if (count($previously_present_check) != 0 && ($previously_present_check['Compmember']['status'] === Configure::read('rejected_sign'))) {
-                                        $link = Router::url(array('controller' => 'documents', 'action' => 'edit', $company_info_from_db[$companies_info[$email]]['Company']['id']), true);
-                                        $title = 'Signatory rejected';
-                                        $subject = $userdata['User']['name'] . ' has been rejected from signining on ' . $company_info_from_db[$companies_info[$email]]['Company']['name'] . '\'s behalf';
-                                        $content = 'Unfortunately ' . $userdata['User']['name'] . 'whom you added as an authorized signatory'
+//                                        $link = Router::url(array('controller' => 'documents', 'action' => 'edit', $company_info_from_db[$companies_info[$email]]['Company']['id']), true);
+//                                        $title = 'Signatory rejected';
+//                                        $subject = $userdata['User']['name'] . ' has been rejected from signining on ' . $company_info_from_db[$companies_info[$email]]['Company']['name'] . '\'s behalf';
+//                                        $content = 'Unfortunately ' . $userdata['User']['name'] . 'whom you added as an authorized signatory'
+//                                                . 'for ' . $docid['Document']['name'] . ' on behalf of ' . $company_info_from_db[$companies_info[$email]]['Company']['name']
+//                                                . ' has been rejected by the company legal head(s).Please click the below button to edit your signatories and remove'
+//                                                . 'the rejected signatories.';
+//                                        $button_text = 'Edit signatories';
+//                                        $this->send_general_email($owner_data, $link, $title, $content, $subject, $button_text);
+                                        $email_to_be_sent = array();
+                                        $email_to_be_sent['link'] = Router::url(array('controller' => 'documents', 'action' => 'edit', $company_info_from_db[$companies_info[$email]]['Company']['id']), true);
+                                        $email_to_be_sent['title'] = 'Signatory rejected';
+                                        $email_to_be_sent['subject'] = $userdata['User']['name'] . ' has been rejected from signining on ' . $company_info_from_db[$companies_info[$email]]['Company']['name'] . '\'s behalf';
+                                        $email_to_be_sent['content'] = 'Unfortunately ' . $userdata['User']['name'] . 'whom you added as an authorized signatory'
                                                 . 'for ' . $docid['Document']['name'] . ' on behalf of ' . $company_info_from_db[$companies_info[$email]]['Company']['name']
                                                 . ' has been rejected by the company legal head(s).Please click the below button to edit your signatories and remove'
                                                 . 'the rejected signatories.';
-                                        $button_text = 'Edit signatories';
-//                                        $this->send_general_email($owner_data, $link, $title, $content, $subject, $button_text);
-                                        $email_to_be_sent = array();
-                                        $email_to_be_sent['link'] = $link;
-                                        $email_to_be_sent['title'] = $title;
-                                        $email_to_be_sent['subject'] = $subject;
-                                        $email_to_be_sent['content'] = $content;
-                                        $email_to_be_sent['button_text'] = $button_text;
-                                        $email_to_be_sent['user_username'] = $userdata['User']['username'];
-                                        $email_to_be_sent['user_name'] = $userdata['User']['name'];
-
-                                        $email_json = json_encode($email_to_be_sent);
-                                        $sqs_client->sendMessage(array(
-                                            'QueueUrl' => $email_queue_localhost_url,
-                                            'MessageBody' => $email_json,
-                                        ));
+                                        $email_to_be_sent['button_text'] = 'Edit signatories';
+                                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $userdata);
+//                                        $email_json = json_encode($email_to_be_sent);
+//                                        $sqs_client->sendMessage(array(
+//                                            'QueueUrl' => $email_queue_localhost_url,
+//                                            'MessageBody' => $email_json,
+//                                        ));
 //                                        exec("wget -qO- http://localhost/cakephp/users/send_email &> /dev/null &");
                                         continue;
                                     }
@@ -399,13 +400,14 @@ class DocumentsController extends AppController {
                                         $email_to_be_sent['content'] = 'You have been requested by '.$owner_data['User']['name'].' to sign a document on our website.Please '
                                                 . 'click below button to view your document signing requests.';
                                         $email_to_be_sent['button_text'] = 'View Document Signing Request';
-                                        $email_to_be_sent['user_username'] = $userdata['User']['username'];
-                                        $email_to_be_sent['user_name'] = $userdata['User']['name'];
-                                        $email_json = json_encode($email_to_be_sent);
-                                        $sqs_client->sendMessage(array(
-                                            'QueueUrl' => $email_queue_localhost_url,
-                                            'MessageBody' => $email_json,
-                                        ));
+                                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $userdata);
+//                                        $email_to_be_sent['user_username'] = $userdata['User']['username'];
+//                                        $email_to_be_sent['user_name'] = $userdata['User']['name'];
+//                                        $email_json = json_encode($email_to_be_sent);
+//                                        $sqs_client->sendMessage(array(
+//                                            'QueueUrl' => $email_queue_localhost_url,
+//                                            'MessageBody' => $email_json,
+//                                        ));
 //                                        exec("wget -qO- http://localhost/cakephp/users/send_email &> /dev/null &");
                                     } else {
                                         /*
@@ -417,27 +419,29 @@ class DocumentsController extends AppController {
                                         foreach ($comp_member_info as $comp_member):
                                             if ($comp_member['Compmember']['status'] === Configure::read('legal_head')) {
                                                 $user_info = $this->User->find('first', array('conditions' => array('id' => $comp_member['Compmember']['uid'])));
-                                                $title = 'Permission for Signing';
-                                                $link = Router::url(array('controller' => 'compmember', 'action' => 'authorise_user', $company_info_from_db[$companies_info[$email]]['Company']['id']), true);
-                                                $subject = 'Authorising ' . $userdata['User']['name'] . ' for document signing';
-                                                $content = $userdata['User']['name'] . " has requested to sign on" . $company_info_from_db[$companies_info[$email]]['Company']['name'] . ".Click on below button to authorise "
-                                                        . "user for signing the document.";
-                                                $button_text = 'Authorize user';
+//                                                $title = 'Permission for Signing';
+//                                                $link = Router::url(array('controller' => 'compmember', 'action' => 'authorise_user', $company_info_from_db[$companies_info[$email]]['Company']['id']), true);
+//                                                $subject = 'Authorising ' . $userdata['User']['name'] . ' for document signing';
+//                                                $content = $userdata['User']['name'] . " has requested to sign on" . $company_info_from_db[$companies_info[$email]]['Company']['name'] . ".Click on below button to authorise "
+//                                                        . "user for signing the document.";
+//                                                $button_text = 'Authorize user';
 //                                                $this->send_general_email($user_info, $link, $title, $content, $subject, $button_text);
                                                 $email_to_be_sent = array();
-                                                $email_to_be_sent['link'] = $link;
-                                                $email_to_be_sent['title'] = $title;
-                                                $email_to_be_sent['subject'] = $subject;
-                                                $email_to_be_sent['content'] = $content;
-                                                $email_to_be_sent['button_text'] = $button_text;
-                                                $email_to_be_sent['user_username'] = $user_info['User']['username'];
-                                                $email_to_be_sent['user_name'] = $user_info['User']['name'];
-
-                                                $email_json = json_encode($email_to_be_sent);
-                                                $sqs_client->sendMessage(array(
-                                                    'QueueUrl' => $email_queue_localhost_url,
-                                                    'MessageBody' => $email_json,
-                                                ));
+                                                $email_to_be_sent['link'] = Router::url(array('controller' => 'compmember', 'action' => 'authorise_user', $company_info_from_db[$companies_info[$email]]['Company']['id']), true);
+                                                $email_to_be_sent['title'] = 'Permission for Signing';
+                                                $email_to_be_sent['subject'] = 'Authorising ' . $userdata['User']['name'] . ' for document signing';
+                                                $email_to_be_sent['content'] = $userdata['User']['name'] . " has requested to sign on" . $company_info_from_db[$companies_info[$email]]['Company']['name'] . ".Click on below button to authorise "
+                                                        . "user for signing the document.";
+                                                $email_to_be_sent['button_text'] = 'Authorize user';
+                                                $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $user_info);
+//                                                $email_to_be_sent['user_username'] = $user_info['User']['username'];
+//                                                $email_to_be_sent['user_name'] = $user_info['User']['name'];
+//
+//                                                $email_json = json_encode($email_to_be_sent);
+//                                                $sqs_client->sendMessage(array(
+//                                                    'QueueUrl' => $email_queue_localhost_url,
+//                                                    'MessageBody' => $email_json,
+//                                                ));
 //                                                exec("wget -qO- http://localhost/cakephp/users/send_email &> /dev/null &");
 //                                                $command = "php -f /var/www/myweb/image_resize.php";
 //
@@ -449,7 +453,7 @@ class DocumentsController extends AppController {
                                          * Sending mail to the collabarator with the signing link which would only be valid if he becomes 
                                          * authorized signatory in future.
                                          */
-                                        $title = 'Document Signing Request';
+//                                        $title = 'Document Signing Request';
                                         $link = Router::url(array('controller' => 'documents',
                                                     'action' => 'sign',
                                                     "?" => [
@@ -457,25 +461,27 @@ class DocumentsController extends AppController {
                                                         , "token" => $token
                                                         , "docuid" => $docid['Document']['id']])
                                                         , true);
-                                        $subject = 'Authoirzed Signatory for ' . $company_info_from_db[$companies_info[$email]]['Company']['name'];
-                                        $content = $owner_data['User']['name'] . " has requested for you to sign on " . $company_info_from_db[$companies_info[$email]]['Company']['name'] . " behalf.Wait for your authorisation from that "
-                                                . "company.Click below button to send email again to company legal head for granting access.";
-                                        $button_text = "Sign Document";
+//                                        $subject = 'Authoirzed Signatory for ' . $company_info_from_db[$companies_info[$email]]['Company']['name'];
+//                                        $content = $owner_data['User']['name'] . " has requested for you to sign on " . $company_info_from_db[$companies_info[$email]]['Company']['name'] . " behalf.Wait for your authorisation from that "
+//                                                . "company.Click below button to send email again to company legal head for granting access.";
+//                                        $button_text = "Sign Document";
 //                                        $this->send_general_email($userdata, $link, $title, $content, $subject, $button_text);
                                         $email_to_be_sent = array();
                                         $email_to_be_sent['link'] = $link;
-                                        $email_to_be_sent['title'] = $title;
-                                        $email_to_be_sent['subject'] = $subject;
-                                        $email_to_be_sent['content'] = $content;
-                                        $email_to_be_sent['button_text'] = $button_text;
-                                        $email_to_be_sent['user_username'] = $userdata['User']['username'];
-                                        $email_to_be_sent['user_name'] = $userdata['User']['name'];
-
-                                        $email_json = json_encode($email_to_be_sent);
-                                        $sqs_client->sendMessage(array(
-                                            'QueueUrl' => $email_queue_localhost_url,
-                                            'MessageBody' => $email_json,
-                                        ));
+                                        $email_to_be_sent['title'] = 'Document Signing Request';
+                                        $email_to_be_sent['subject'] = 'Authoirzed Signatory for ' . $company_info_from_db[$companies_info[$email]]['Company']['name'];
+                                        $email_to_be_sent['content'] = $owner_data['User']['name'] . " has requested for you to sign on " . $company_info_from_db[$companies_info[$email]]['Company']['name'] . " behalf.Wait for your authorisation from that "
+                                                . "company.Click below button to send email again to company legal head for granting access.";
+                                        $email_to_be_sent['button_text'] = "Sign Document";
+                                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $userdata);
+//                                        $email_to_be_sent['user_username'] = $userdata['User']['username'];
+//                                        $email_to_be_sent['user_name'] = $userdata['User']['name'];
+//
+//                                        $email_json = json_encode($email_to_be_sent);
+//                                        $sqs_client->sendMessage(array(
+//                                            'QueueUrl' => $email_queue_localhost_url,
+//                                            'MessageBody' => $email_json,
+//                                        ));
                                         
                                     }
                                 } else {
@@ -483,7 +489,9 @@ class DocumentsController extends AppController {
                                 }
 
                             endforeach;
-                            exec("wget -qO- http://localhost/cakephp/users/send_email &> /dev/null &");
+                            $this->log('Call going to sqs');
+                            exec("wget -qO- http://localhost/cakephp/users/send_email  > /dev/null 2>/dev/null &");
+                            $this->log('Call exited from sqs');
                             echo '{"finaldocstatus":true}';
                             $this->Session->setFlash(__('Document uploaded suceessfully and mails sent to all signatories'), 'flash_success');
                             exit;

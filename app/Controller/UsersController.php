@@ -425,6 +425,8 @@ class UsersController extends AppController {
                 $message_receipt_handle = $message['ReceiptHandle'];
                 $userdata = array();
                 CakeLog::write('emails', $body);
+                $this->log("email body");
+                $this->log($body);
                 $userdata['User']['name'] = $body->user_name;
                 $userdata['User']['username'] = $body->user_username;
                 if ($this->send_general_email($userdata, $body->link, $body->title, $body->content, $body->subject, $body->button_text)) {

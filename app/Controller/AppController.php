@@ -93,6 +93,21 @@ class AppController extends Controller {
                     'name_of_user' => $userdata['User']['name']));
         return($sign_document_email->send());
     }
+    
+    public function add_email_message_sqs($email_message,$sqsclient,$queueurl,$userdata)
+    {
+        $email_message['user_username'] = $userdata['User']['username'];
+        $email_message['user_name'] = $userdata['User']['name'];
+        $email_json = json_encode($email_message);
+        
+        /*
+         * Add code here for the case when message cant be added successfully into SQS.
+         */
+        $sqsclient->sendMessage(array(
+            'QueueUrl' => $queueurl,
+            'MessageBody' => $email_json,
+        ));
+    }
 
     public function send_general_email($userdata, $link, $title, $content, $subject, $button_text) {
         $email = new CakeEmail('mandrill_signup');
