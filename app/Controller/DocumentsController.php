@@ -309,9 +309,9 @@ class DocumentsController extends AppController {
 
                                 if ($flag_when_company_is_not_added === 0 && $flag_for_not_sending_email_to_legal_head == 0) {
                                     $previously_present_check = $this->Compmember->find('first', array('conditions' => array('cid' => $company_info_from_db[$companies_info[$email]]['Company']['id'], 'uid' => $userdata['User']['id'])));
-                                    $this->log('Entering in flags.');
-                                    $this->log('$previously_present_check');
-                                    $this->log($previously_present_check);
+//                                    $this->log('Entering in flags.');
+//                                    $this->log('$previously_present_check');
+//                                    $this->log($previously_present_check);
                                     /*
                                      * If this collabarator is already present as rejected signatory in Compmember than send the email to the 
                                      * document owner that this signatory is already rejected from the legal heads of the company.
@@ -894,6 +894,12 @@ class DocumentsController extends AppController {
         $flag_for_changing_document_status = 0;
 
         if ($this->request->is('post')) {
+            $aws_sdk = $this->get_aws_sdk();
+            $sqs_client = $aws_sdk->createSqs();
+
+            $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_emails'));
+            $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
+            $owner_data = $this->User->find('first', array('conditions' => array('id' => CakeSession::read('Auth.User.id'))));
             if (isset($this->request->data['newname'])) {
                 /*
                  * Making the default status of name change to be false so that if there is some problem in
@@ -1021,7 +1027,15 @@ class DocumentsController extends AppController {
                                         , "token" => $token
                                         , "docuid" => $docuid])
                                         , true);
-                        $this->sendemail('sign_document_request', 'notification_email_layout', $user_with_this_email, $document_signing_link, 'Document Signing Request');
+                        $email_to_be_sent = array();
+                        $email_to_be_sent['link'] = $document_signing_link;
+                        $email_to_be_sent['title'] = 'Document SIgning Request';
+                        $email_to_be_sent['subject'] = 'Document Signing Request';
+                        $email_to_be_sent['content'] = 'You have been requested by ' . $owner_data['User']['name'] . ' to sign a document on our website.Please '
+                                . 'click below button to view your document signing requests.';
+                        $email_to_be_sent['button_text'] = 'View Document Signing Request';
+                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $user_with_this_email);
+//                        $this->sendemail('sign_document_request', 'notification_email_layout', $user_with_this_email, $document_signing_link, 'Document Signing Request');
                     }
                 endforeach;
 

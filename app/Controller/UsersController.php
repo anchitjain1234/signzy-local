@@ -396,14 +396,10 @@ class UsersController extends AppController {
             throw new NotFoundException(__('Invalid URL'));
         }
     }
-
-    public function email_test() {
-        $this->layout = 'Emails/html/main_layout_email';
-        $this->set('email_verification_link', 'afsdfsdf');
-
-        return $this->render('/Emails/html/signupemail');
-    }
-
+    
+    /*
+     * Send emails by getting messages from the SQS.
+     */
     public function send_email() {
         $this->autorender = false;
         $this->layout = false;
@@ -412,7 +408,7 @@ class UsersController extends AppController {
 
         $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_emails'));
         $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
-        $this->log("send email running");
+//        $this->log("send email running");
         $receive_email = $sqs_client->receiveMessage(array(
             'QueueUrl' => $email_queue_localhost_url,
             'MaxNumberOfMessages' => 5,
@@ -424,9 +420,9 @@ class UsersController extends AppController {
                 $body = json_decode($message['Body']);
                 $message_receipt_handle = $message['ReceiptHandle'];
                 $userdata = array();
-                CakeLog::write('emails', $body);
-                $this->log("email body");
-                $this->log($body);
+//                CakeLog::write('emails', $body);
+//                $this->log("email body");
+//                $this->log($body);
                 $userdata['User']['name'] = $body->user_name;
                 $userdata['User']['username'] = $body->user_username;
                 if ($this->send_general_email($userdata, $body->link, $body->title, $body->content, $body->subject, $body->button_text)) {
