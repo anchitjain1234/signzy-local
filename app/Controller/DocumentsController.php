@@ -1269,11 +1269,11 @@ class DocumentsController extends AppController {
             if (strtolower($extension) === 'pdf') {
 
                 header('Content-Type: application/pdf');
-                header("Content-Disposition:attachment;filename='" . $docinfo['Document']['name'] . "_from_verysure." . $extension . "'");
+                header("Content-Disposition:attachment;filename='" . $docinfo['Document']['name'] . "_from_signzy." . $extension . "'");
             } elseif (strtolower($extension) === 'doc' || strtolower($extension) === 'docx') {
 
                 header('Content-Type: application/doc');
-                header("Content-Disposition:attachment;filename='" . $docinfo['Document']['name'] . "_from_verysure." . $extension . "'");
+                header("Content-Disposition:attachment;filename='" . $docinfo['Document']['name'] . "_from_signzy." . $extension . "'");
             }
 
             header("Content-Length: " . filesize($docurl));
