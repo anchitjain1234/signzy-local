@@ -522,14 +522,29 @@ class DocumentsController extends AppController {
                      * Upload file to S3 for permanent storage as the current location is temporary only.
                      */
                     $aws_sdk = $this->get_aws_sdk();
-                    $s3_client = $aws_sdk->createS3();
+//                    $s3_client = $aws_sdk->createS3();
+                    $sqs_client = $aws_sdk->createSqs();
+                    
+                    $uploading_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_uploads'));
+                    $uploading_queue_localhost_url = $uploading_queue_localhost->get('QueueUrl');
 
+                    $sqs_client->setQueueAttributes(array(
+                        'QueueUrl' => $uploading_queue_localhost_url,
+                        'Attributes' => array(
+                            'VisibilityTimeout' => 30,
+                            'ReceiveMessageWaitTimeSeconds' => 5,
+                            'DelaySeconds' => 0
+                        ),
+                    ));
+                    
+                    $this->add_upload_message_sqs($temporary_document_name, $sqs_client, $uploading_queue_localhost_url);
+                    $this->upload_s3_from_sqs();
                     /*
                      * Add code here for the case when document couldn't be uploaded into S3 but has been successfully uploaded 
                      * in temporary location.
                      * In this case we should log this and should try it in future.
                      */
-                    $upload_result = $s3_client->upload('signzy-bucket-test-1', $temporary_document_name, fopen(Configure::read('upload_location_url') . $temporary_document_name, 'r'));
+//                    $upload_result = $s3_client->upload('signzy-bucket-test-1', $temporary_document_name, fopen(Configure::read('upload_location_url') . $temporary_document_name, 'r'));
                     //echo $file;
                     echo '{"documentstatus" : true '
                     . ',"documentname" : "' . $temporary_document_name . '"'

@@ -439,5 +439,44 @@ class UsersController extends AppController {
             ));
         }
     }
+    
+    public function upload_doc(){
+        
+        $this->autorender = false;
+        $this->layout = false;
+        $aws_sdk = $this->get_aws_sdk();
+        $sqs_client = $aws_sdk->createSqs();
+        $s3_client = $aws_sdk->createS3();
+        
+        $upload_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_uploads'));
+        $upload_queue_localhost_url = $upload_queue_localhost->get('QueueUrl');
+//        $this->log("send email running");
+        $receive_upload = $sqs_client->receiveMessage(array(
+            'QueueUrl' => $upload_queue_localhost_url,
+            'MaxNumberOfMessages' => 1,
+            'VisibilityTimeout' => 30
+        ));
+//        debug($receive_email['Messages']);
+        while (count($receive_upload) > 0) {
+            foreach ($receive_upload['Messages'] as $message) {
+                $body = json_decode($message['Body']);
+                $message_receipt_handle = $message['ReceiptHandle'];
+                
+                $upload_result = $s3_client->upload('signzy-bucket-test-1', $body->docname, fopen(Configure::read('upload_location_url') . $body->docname, 'r'));
+                if ($upload_result) {
+                    $sqs_client->deleteMessage(array(
+                        'QueueUrl' => $upload_queue_localhost_url,
+                        'ReceiptHandle' => $message_receipt_handle
+                    ));
+                }
+            }
+            $receive_upload = $sqs_client->receiveMessage(array(
+                'QueueUrl' => $upload_queue_localhost_url,
+                'MaxNumberOfMessages' => 1,
+                'VisibilityTimeout' => 30
+            ));
+        }
+        
+    }
 
 }
