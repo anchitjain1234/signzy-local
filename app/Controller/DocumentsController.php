@@ -290,7 +290,7 @@ class DocumentsController extends AppController {
                                 $aws_sdk = $this->get_aws_sdk();
                                 $sqs_client = $aws_sdk->createSqs();
 
-                                $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_emails'));
+                                $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => Configure::read('email_queue')));
                                 $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
 
                                 $sqs_client->setQueueAttributes(array(
@@ -525,7 +525,7 @@ class DocumentsController extends AppController {
 //                    $s3_client = $aws_sdk->createS3();
                     $sqs_client = $aws_sdk->createSqs();
                     
-                    $uploading_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_uploads'));
+                    $uploading_queue_localhost = $sqs_client->createQueue(array('QueueName' => Configure::read('upload_queue')));
                     $uploading_queue_localhost_url = $uploading_queue_localhost->get('QueueUrl');
                     
                     $sqs_client->setQueueAttributes(array(
@@ -929,7 +929,7 @@ class DocumentsController extends AppController {
             $aws_sdk = $this->get_aws_sdk();
             $sqs_client = $aws_sdk->createSqs();
 
-            $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_emails'));
+            $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => Configure::read('email_queue')));
             $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
             $owner_data = $this->User->find('first', array('conditions' => array('id' => CakeSession::read('Auth.User.id'))));
             if (isset($this->request->data['newname'])) {
