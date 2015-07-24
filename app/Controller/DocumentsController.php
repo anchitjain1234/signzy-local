@@ -527,7 +527,7 @@ class DocumentsController extends AppController {
                     
                     $uploading_queue_localhost = $sqs_client->createQueue(array('QueueName' => 'localhost_uploads'));
                     $uploading_queue_localhost_url = $uploading_queue_localhost->get('QueueUrl');
-
+                    
                     $sqs_client->setQueueAttributes(array(
                         'QueueUrl' => $uploading_queue_localhost_url,
                         'Attributes' => array(
@@ -538,13 +538,15 @@ class DocumentsController extends AppController {
                     ));
                     
                     $this->add_upload_message_sqs($temporary_document_name, $sqs_client, $uploading_queue_localhost_url);
+                    $this->log('going to upload into s3');
                     $this->upload_s3_from_sqs();
+                    $this->log('exiting from s3');
                     /*
                      * Add code here for the case when document couldn't be uploaded into S3 but has been successfully uploaded 
                      * in temporary location.
                      * In this case we should log this and should try it in future.
                      */
-//                    $upload_result = $s3_client->upload('signzy-bucket-test-1', $temporary_document_name, fopen(Configure::read('upload_location_url') . $temporary_document_name, 'r'));
+//                    $upload_result = $s3_client->upload(Configure::read('s3_bucket_name'), $temporary_document_name, fopen(Configure::read('upload_location_url') . $temporary_document_name, 'r'));
                     //echo $file;
                     echo '{"documentstatus" : true '
                     . ',"documentname" : "' . $temporary_document_name . '"'
@@ -1168,21 +1170,29 @@ class DocumentsController extends AppController {
          * If file isnt in temporary location check file existence in S3
          */
         if (!$file_check) {
+            $this->log('here 1');
             $aws_sdk = $this->get_aws_sdk();
             $s3_client = $aws_sdk->createS3();
 
-            $file_in_s3 = $s3_client->doesObjectExist('signzy-bucket-test-1', $docname . '.' . $extension);
+            $file_in_s3 = $s3_client->doesObjectExist(Configure::read('s3_bucket_name'), $docname . '.' . $extension);
 
             if ($file_in_s3) {
+                $this->log('here 2');
                 /*
                  * If file is present in S3 download it in temporary location.
                  */
                 $result = $s3_client->getObject(array(
-                    'Bucket' => 'signzy-bucket-test-1',
+                    'Bucket' => Configure::read('s3_bucket_name'),
                     'Key' => $docname . '.' . $extension,
                     'SaveAs' => $docurl
                 ));
-                
+//                $file_key = $docname . '.' . $extension;
+//                $furl = "{Configure::read('s3_bucket_name')}/{$file_key}";
+//                $request = $s3_client->get($furl);
+//                $docurl = $s3_client->createPresignedUrl($request,'+10 minutes');
+////                $docurl = $s3_client->getObjectUrl(Configure::read('s3_bucket_name'), $docname . '.' . $extension,'+10 minutes');
+//                echo $docurl;
+//                $this->log($docurl);
                 /*
                  * When we cant download the document from S3.
                  */
@@ -1289,14 +1299,14 @@ class DocumentsController extends AppController {
             $aws_sdk = $this->get_aws_sdk();
             $s3_client = $aws_sdk->createS3();
 
-            $file_in_s3 = $s3_client->doesObjectExist('signzy-bucket-test-1', $docname . '.' . $extension);
+            $file_in_s3 = $s3_client->doesObjectExist(Configure::read('s3_bucket_name'), $docname . '.' . $extension);
 
             if ($file_in_s3) {
                 /*
                  * If file is present in S3 download it in temporary location.
                  */
                 $result = $s3_client->getObject(array(
-                    'Bucket' => 'signzy-bucket-test-1',
+                    'Bucket' => Configure::read('s3_bucket_name'),
                     'Key' => $docname . '.' . $extension,
                     'SaveAs' => $docurl
                 ));

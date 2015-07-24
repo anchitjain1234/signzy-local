@@ -5,6 +5,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
+$config['s3_bucket_name'] = 'signzy-bucket-test-1';
 $config['doc_owner'] = '-1';
 $config['doc_pending'] = '0';
 $config['doc_completed'] = '1';
