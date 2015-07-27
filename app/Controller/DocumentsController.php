@@ -437,7 +437,8 @@ class DocumentsController extends AppController {
                             /*
                              * Send async call to send_email to send emails prtesent in queue.
                              */
-                            exec("wget -qO- http://localhost/cakephp/users/send_email  > /dev/null 2>/dev/null &");
+                            $this->send_email_from_sqs();
+//                            exec("wget -qO- http://localhost/cakephp/users/send_email  > /dev/null 2>/dev/null &");
                             $this->log('Call exited from sqs');
                             echo '{"finaldocstatus":true}';
                             $this->Session->setFlash(__('Document uploaded suceessfully and mails sent to all signatories'), 'flash_success');
@@ -821,7 +822,10 @@ class DocumentsController extends AppController {
      * If document owner sends the delete request through ajax post than it responds
      * by a JSON object haivng status of deletion.
      */
-
+    
+    /*
+     * Add code here to also delete the document from S3 bucket.
+     */
     public function delete() {
         $this->request->onlyAllow('ajax');
         if ($this->request->is('post')) {
@@ -1114,6 +1118,7 @@ class DocumentsController extends AppController {
                 }
                 $status_object->cols = true;
             }
+            $this->send_email_from_sqs();
             $status_object->status = true;
             $this->Session->setFlash(__('Data saved successfully.'), 'flash_success');
         } else {
