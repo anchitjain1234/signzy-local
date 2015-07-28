@@ -75,32 +75,48 @@ $(function () {
         onLoad: function () {
         }
     });
+    
+    function send_ajax_Request(status)
+    {
+        $.ajax({
+            url: "sign.json",
+            method: "POST",
+            data: {"status": status, "userid": userid, "docuid": docuid,"image":image_captured_url}
+        }).success(function (res) {
+            if (res['success'])
+                {
+                    window.location = "trail/" + docuid;
+                }
+            else
+            {
+                if(res['error'] === 1)
+                {
+                    alert("Error while saving data.Try again ");
+                }
+                else if(res['error'] === 2)
+                {
+                    alert("No facescan image provided. ");
+                }
+                else
+                {
+                    alert("Unknown error.Please report to support. ");
+                }
+            }
+        }).fail(function (res) {
+            alert("Please check your internet connection. ");
+        });
+    }
 
     $.sign_document = function () {
-        $.ajax({
-            url: "sign",
-            method: "POST",
-            data: {"status": 1, "userid": userid, "docuid": docuid}
-        });
-        window.location = "trail/" + docuid;
+        send_ajax_Request(1);
     };
 
     $.reject_document = function () {
-        $.ajax({
-            url: "sign",
-            method: "POST",
-            data: {"status": 3, "userid": userid, "docuid": docuid}
-        });
-        window.location = "trail/" + docuid;
+        send_ajax_Request(3);
     };
 
     $.void_document = function () {
-        $.ajax({
-            url: "sign",
-            method: "POST",
-            data: {"status": 2, "userid": userid, "docuid": docuid}
-        });
-        window.location = "trail/" + docuid;
+        send_ajax_Request(2);
     };
 
     function startup() {

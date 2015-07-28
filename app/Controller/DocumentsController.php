@@ -185,6 +185,7 @@ class DocumentsController extends AppController {
                         $this->Col->create();
                         $this->Col->set('did', $docid['Document']['id']);
                         $this->Col->set('status', Configure::read('doc_owner'));
+                        $this->Col->set('photoverification', Configure::read('photo_not_exists'));
                         $this->Col->set('uid', CakeSession::read('Auth.User.id'));
                         $this->Col->save();
 
@@ -355,7 +356,7 @@ class DocumentsController extends AppController {
                                 $token = $this->generate_token($email, $userdata['User']['name']);
                                 $this->Col->set('token', $token);
                                 $this->Col->set('uid', $userdata['User']['id']);
-
+                                $this->Col->set('photoverification', Configure::read('photo_not_exists'));
                                 /*
                                  * Saving the company id in collabaratotrs when authorised signatory is on behalf of some company.
                                  */
@@ -513,22 +514,22 @@ class DocumentsController extends AppController {
                  * lost from the temporary files.
                  */
                 if (move_uploaded_file($_FILES['data']['tmp_name']['Document']['file'], Configure::read('upload_location_url') . $temporary_document_name)) {
-                    
+
                     /*
                      * Change this upload from queue instead of uploading here as it takes really long time.
                      * Make this process async.
                      */
-                    
+
                     /*
                      * Upload file to S3 for permanent storage as the current location is temporary only.
                      */
                     $aws_sdk = $this->get_aws_sdk();
 //                    $s3_client = $aws_sdk->createS3();
                     $sqs_client = $aws_sdk->createSqs();
-                    
+
                     $uploading_queue_localhost = $sqs_client->createQueue(array('QueueName' => Configure::read('upload_queue')));
                     $uploading_queue_localhost_url = $uploading_queue_localhost->get('QueueUrl');
-                    
+
                     $sqs_client->setQueueAttributes(array(
                         'QueueUrl' => $uploading_queue_localhost_url,
                         'Attributes' => array(
@@ -537,7 +538,7 @@ class DocumentsController extends AppController {
                             'DelaySeconds' => 0
                         ),
                     ));
-                    
+
                     $this->add_upload_message_sqs($temporary_document_name, $sqs_client, $uploading_queue_localhost_url);
                     $this->log('going to upload into s3');
                     $this->upload_s3_from_sqs();
@@ -575,6 +576,19 @@ class DocumentsController extends AppController {
              */
             if (isset($this->params['url']['token']) && isset($this->params['url']['userid']) &&
                     isset($this->params['url']['docuid'])) {
+
+                /*
+                 * First checking if the user information has been verified by PAN card etc.
+                 * If not we will not let him sign the document.
+                 */
+                $this->loadModel('Profile');
+                $userprofile = $this->Profile->find('first', array('conditions' => array('uid' => $this->params['url']['userid'])));
+
+                if (!isset($userprofile) || $userprofile['Profile']['verified'] === Configure::read('profile_unverified')) {
+                    $this->Session->setFlash(__('You cant sign document as your profile hasnt been verified.Please visit your profile page to get '
+                                    . 'verification information.'), 'flash_error');
+                    return $this->redirect(array('controller' => 'users', 'action' => 'index'));
+                }
                 /*
                   Checking if the current logged in user is the user that was requested to sign the document.
                   Otherwise logout the current user and ask him to login again with the account which was requested to
@@ -612,6 +626,16 @@ class DocumentsController extends AppController {
              * Add code here is the user is unauthorised signatory of the comopany
              */
             if ($coldata) {
+
+                /*
+                 * If user has already signed the document but the photo that he supplied hasnt been verified first.
+                 */
+                if ($coldata['Col']['photoverification'] === Configure::read('photo_unverified')) {
+                    $this->Session->setFlash(__('You have already applied for signing this document.PLease let it verify first.
+                        After verification you can resign the document.'), 'flash_error');
+                    return $this->redirect(array('controller' => 'dashboard', 'action' => 'index'));
+                }
+
                 /*
                  * If user id signing on behalf of company
                  */
@@ -655,96 +679,91 @@ class DocumentsController extends AppController {
             $this->request->onlyAllow('ajax');
             $status = $this->request->data['status'];
             $docuid = $this->request->data['docuid'];
-
-            $this->loadModel('Col');
-            $parameters = array(
-                'conditions' => array(
-                    'uid' => $this->request->data['userid'],
-                    'did' => $this->request->data['docuid']
-                ),
-                'fields' => array('id', 'status')
-            );
-            $coldata = $this->Col->find('first', $parameters);
+            $image_base64 = $this->request->data['image'];
 
             /*
-              Set the col id so that it can be updated
+             * Checking if image that we have captured is not empty.
              */
-            $this->Col->id = $coldata['Col']['id'];
-            $this->Col->set('status', $userdata['User']['id']);
+            if ($image_base64 != '') {
 
-            /*
-              Unset these variables so that they dont get saved.
-             */
-            unset($this->request->data['userid']);
-            unset($this->request->data['docuid']);
+                list($type, $data) = explode(';', $image_base64);
+                list(, $data) = explode(',', $data);
+                $data = base64_decode($data);
 
-            if ($this->Col->save($this->request->data)) {
-                $total_collabarators = $this->Col->find('count', array('conditions' => array('did' => $docuid)));
+                $imgname = $this->get_temporary_document_name();
+                $complete_path = Configure::read('image_upload_location') . $imgname . ".png";
+                $file_created = fopen($complete_path, 'w');
+                file_put_contents($complete_path, $data);
+
                 /*
-                  See here if he document has to be rejected even if one user rejects it or not,
-                  Checking if current user voided or rejected the document
+                 * Add code here to asynchronusly upload this image into s3 bucket.
                  */
-                if ($status === Configure::read('doc_void') || $status === Configure::read('doc_rejected')) {
-                    /*
-                      Even if one user voids or rejects the document whole document is voided or rejected
-                     */
-                    $this->Document->id = $docuid;
-                    $this->Document->set('status', $status);
-                    $this->Document->save();
-                }
+                $uid = $this->request->data['userid'];
+                $this->loadModel('Col');
+                $parameters = array(
+                    'conditions' => array(
+                        'uid' => $this->request->data['userid'],
+                        'did' => $this->request->data['docuid']
+                    ),
+                    'fields' => array('id', 'status')
+                );
+                $coldata = $this->Col->find('first', $parameters);
+
                 /*
-                  Checking if current user signed the document.
-                 */ elseif ($status === Configure::read('doc_completed')) {
-                    /*
-                      If all the signatories sign the document than only document will have status complete i.e. 1
-                     */
-                    $parameters = array(
-                        'conditions' => array(
-                            'did' => $docuid,
-                            'status' => Configure::read('doc_completed')
-                        )
-                    );
-                    $collabarators_with_completed_status = $this->Col->find('count', $parameters);
+                  Set the col id so that it can be updated
+                 */
+                $this->Col->id = $coldata['Col']['id'];
+                $this->Col->set('status', $status);
+                /*
+                 * Set verification status as unverified and save the image.
+                 */
+                $this->Col->set('photoverification', Configure::read('photo_unverified'));
+                $this->Col->set('photocaptured', $imgname . ".png");
+                /*
+                  Unset these variables so that they dont get saved.
+                 */
+                unset($this->request->data['userid']);
+                unset($this->request->data['docuid']);
+
+                if ($this->Col->save($this->request->data)) {
 
                     /*
-                      Checking if document signing has been completed or not.
+                     * Add code here to send the emails to the support staff to verify this photo.
                      */
-                    if ($collabarators_with_completed_status === $total_collabarators) {
-                        $this->Document->id = $docuid;
-                        $this->Document->set('status', "1");
-                        $this->Document->save();
+                    $aws_sdk = $this->get_aws_sdk();
+                    $sqs_client = $aws_sdk->createSqs();
+
+                    $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => Configure::read('email_queue')));
+                    $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
+
+                    $email_to_be_sent = array();
+                    $email_to_be_sent['link'] = Router::url(array('controller' => 'documents', 'action' => 'photoverification', '?' => ["did" => $docuid,"uid"=>$uid]), true);
+                    $email_to_be_sent['title'] = 'Photo Approval';
+                    $email_to_be_sent['subject'] = 'Approval of Photo captured';
+                    $email_to_be_sent['content'] = 'Please click below link to verify the photo captured.';
+                    $email_to_be_sent['button_text'] = 'Verify Photo';
+
+                    $this->loadModel('User');
+                    $support_staff = $this->User->find('all', array('conditions' => array('type' => Configure::read('support'))));
+
+                    foreach ($support_staff as $support) {
+                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $support);
                     }
+
+                    $this->Session->setFlash(__('Your photoscan has been sent for verification.If it gets verified your signature
+                                     will get accepted.'), 'flash_success');
+                    return $this->redirect(array('controller' => 'document', 'action' => 'index'));
+                } else {
+                    /*
+                     * Case when data can not be saved.
+                     */
+                    echo '{"error":1}';
                 }
-
-                /*
-                  Sending the notification email to the owner that there has been some changes in document.
-                  Letting him to know to visit the dashboard
-                  Will add the option in future to disable email alert for every status update.
-                  Also include here to send the emails to all the other collabarators also to notify them of the change.
-                 */
-                $parameters = array(
-                    'conditions' => array(
-                        'id' => $docuid
-                    ),
-                    'fields' => array('ownerid')
-                );
-                $owner_id = $this->Document->find('first', $parameters);
-
-                $parameters = array(
-                    'conditions' => array(
-                        'id' => $owner_id['Document']['ownerid']
-                    ),
-                );
-
-                $owner_data = $this->User->find('first', $parameters);
-                $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
-                $this->sendemail('document_updated_request', 'notification_email_layout', $owner_data, $link, 'Document Status Updated');
-
-                $this->Session->setFlash(__('Your status updated successfully.
-                                     '), 'flash_success');
             } else {
-                $this->Session->setFlash(__('Error while saving your data.Please try again later.
-                                     '), 'flash_error');
+                /*
+                 * Case when image is not provided.
+                 */
+                echo '{"error":2}';
             }
         }
     }
@@ -822,10 +841,11 @@ class DocumentsController extends AppController {
      * If document owner sends the delete request through ajax post than it responds
      * by a JSON object haivng status of deletion.
      */
-    
+
     /*
      * Add code here to also delete the document from S3 bucket.
      */
+
     public function delete() {
         $this->request->onlyAllow('ajax');
         if ($this->request->is('post')) {
@@ -1315,7 +1335,7 @@ class DocumentsController extends AppController {
                     'Key' => $docname . '.' . $extension,
                     'SaveAs' => $docurl
                 ));
-                
+
                 /*
                  * When we cant download the document from S3.
                  */
@@ -1379,6 +1399,103 @@ class DocumentsController extends AppController {
             readfile($docurl);
         } else {
             throw new NotFoundException(__('Invalid URL'));
+        }
+    }
+
+    public function photoverification() {
+        $this->loadModel('User');
+        $userid = CakeSession::read('Auth.User.id');
+        $userdata = $this->User->find('first', array('conditions' => array('id' => $userid)));
+
+        /*
+         * Checking if the user is not customer
+         */
+        if ($userdata['User']['type'] != Configure::read('customer')) {
+            if ($this->request->is('get')) {
+                if (isset($this->params['url']['uid']) && isset($this->params['url']['did'])) {
+                    $uid = $this->params['url']['uid'];
+                    $did = $this->params['url']['did'];
+                } else {
+                    throw new NotFoundException(__('Invalid URL'));
+                }
+
+                $this->loadModel('Profile');
+                $signeeprofile = $this->Profile->find('first', array('conditions' => array('uid' => $uid)));
+
+                $this->loadModel('Col');
+                $this->loadModel('Document');
+                $signeecol = $this->Col->find('first', array('conditions' => array('uid' => $uid, 'did' => $did)));
+                
+                $this->log($signeeprofile);
+                $this->log($signeecol);
+                $this->set('profiledata', $signeeprofile);
+                $this->set('coldata', $signeecol);
+            }
+            if ($this->request->is('post')) {
+                $this->request->allowMethod('ajax');
+                $this->autorender = false;
+                $this->layout = false;
+
+                $option = $this->request->data['option'];
+                $uid = $this->request->data['uid'];
+                $did = $this->request->data['did'];
+
+                $this->loadModel('Col');
+                $coldata = $this->Col->find('first', array('conditions' => array('uid' => $uid, 'did' => $did)));
+                
+                $aws_sdk = $this->get_aws_sdk();
+                $sqs_client = $aws_sdk->createSqs();
+
+                $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => Configure::read('email_queue')));
+                $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
+                
+                $this->loadModel('User');
+                $userdata = $this->User->find('first',array('conditions'=>array('id'=>$uid)));
+                if ($option === 'TRUE') {
+                    $this->Col->id = $coldata['Col']['id'];
+                    $this->Col->set('photoverification', Configure::read('photo_verified'));
+                    if ($this->Col->save()) {
+                        /*
+                         * Send email to the user that he has been verified.
+                         */
+                        $email_to_be_sent = array();
+                        $email_to_be_sent['link'] = Router::url(array('controller' => 'documents', 'action' => 'index'), true);
+                        $email_to_be_sent['title'] = 'Photo verified';
+                        $email_to_be_sent['subject'] = 'Photo verified';
+                        $email_to_be_sent['content'] = 'Your photo captured has been verified which we captured during signing '
+                                . 'of a doc.Please click below button to see your documents.';
+                        $email_to_be_sent['button_text'] = 'My Documents';
+                        
+                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url,$userdata );
+                        $this->update_document_status($did, $coldata['Col']['status']);
+
+                        echo '{"success":1}';
+                    } else {
+                        echo '{"error":1}';
+                    }
+                } else {
+                    $this->Col->id = $coldata['Col']['id'];
+                    $this->Col->set('photoverification', Configure::read('photo_rejected'));
+
+                    if ($this->Col->save()) {
+                        /*
+                         * Send email to the user and document owner that user signatory has been rejected.
+                         */
+                        $email_to_be_sent = array();
+                        $email_to_be_sent['link'] = Router::url(array('controller' => 'documents', 'action' => 'index'), true);
+                        $email_to_be_sent['title'] = 'Photo rejected';
+                        $email_to_be_sent['subject'] = 'Photo rejected';
+                        $email_to_be_sent['content'] = 'Your photo captured has been rejected which we captured during signing '
+                                . 'of a doc.Please visit previous emails to reapply.';
+                        $email_to_be_sent['button_text'] = 'My Documents';
+                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url,$userdata );
+                        
+                        echo '{"success":2}';
+                    } else {
+                        echo '{"error":1}';
+                    }
+                }
+            }
         }
     }
 

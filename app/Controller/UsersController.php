@@ -89,7 +89,11 @@ class UsersController extends AppController {
                      */
                     $token = $this->generate_token($this->request->data['User']['username'], $this->request->data['User']['name']);
                     $this->request->data['User']['token'] = $token;
-
+                    
+                    /*
+                     * Setting the user to customer by default.
+                     */
+                    $this->request->data['User']['type'] = Configure::read('customer');
                     if ($this->User->save($this->request->data)) {
 
                         if (isset($this->request->data['User']['companyname'])) {
