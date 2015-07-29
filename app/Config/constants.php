@@ -52,7 +52,8 @@ $config['rejected_sign'] = '-1';
  */
 $config['profile_verified'] = '1';
 $config['profile_unverified'] = '0';
-
+$config['profile_rejected'] = '-1';
+$config['profile_not_exists'] = '-2';
 /*
  * User account status
  */

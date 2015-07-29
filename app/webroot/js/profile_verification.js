@@ -173,7 +173,27 @@ $(function () {
                method: "POST",
                data : {"name":verified_face,"cardnumber":$('#cardnumber').val()}
            }).success(function(res){
-              console.log("success"); 
+              res = JSON.parse(res);
+              if(res['success'])
+              {
+                  alert("Verification request sent succesfully.");
+              }
+              else
+              {
+                  if(res['error'] === 1)
+                  {
+                      alert("Data cant be saved.Try again");
+                  }
+                  else if(res['error'] === 2)
+                  {
+                      alert("Invalid request");
+                  }
+                  else
+                  {
+                      alert("Unknown error.");
+                  }
+              }
+              
            }).fail(function(res){
                console.log("failure");
            });

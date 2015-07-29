@@ -38,7 +38,26 @@ class ProfileController extends AppController {
     }
 
     public function verification() {
-        
+        if ($this->request->is('get')) {
+            $previous_existence_check = $this->Profile->find('first', array('conditions' => array('uid' => CakeSession::read('Auth.User.id'))));
+            if ($previous_existence_check) {
+                if ($previous_existence_check['Profile']['verified'] === Configure::read('profile_rejected')) {
+                    $this->render();
+                } elseif ($previous_existence_check['Profile']['verified'] === Configure::read('profile_unverified')) {
+                    /*
+                     * If user application is in provisioning.
+                     */
+                    $this->Session->setFlash('Your profile is in verification process.Pleasae wait for it to finish.', 'flash_error');
+                    return $this->redirect(array('controller' => 'profile', 'action' => 'index'));
+                } elseif ($previous_existence_check['Profile']['verified'] === Configure::read('profile_verified')) {
+                    /*
+                     * If user application has been verified before.
+                     */
+                    $this->Session->setFlash('Your profile is already verified.', 'flash_error');
+                    return $this->redirect(array('controller' => 'profile', 'action' => 'index'));
+                }
+            }
+        }
     }
 
     public function profilepicture() {
@@ -167,11 +186,38 @@ class ProfileController extends AppController {
 
         if ($this->request->is('post')) {
             $imgname = $this->request->data['name'];
-            $this->Profile->create();
-            $this->Profile->set('uid', CakeSession::read('Auth.User.id'));
-            $this->Profile->set('verified', Configure::read('profile_unverified'));
-            $this->Profile->set('verificationimage', $imgname);
-            $this->Profile->set('cardnumber', $this->request->data['cardnumber']);
+
+            /*
+             * Checking if the user has applied before for profile verification and has been rejected
+             */
+
+            $previous_existence_check = $this->Profile->find('first', array('conditions' => array('uid' => CakeSession::read('Auth.User.id'))));
+            if ($previous_existence_check) {
+                if ($previous_existence_check['Profile']['verified'] === Configure::read('profile_rejected')) {
+                    $this->Profile->set('verified', Configure::read('profile_unverified'));
+                } elseif ($previous_existence_check['Profile']['verified'] === Configure::read('profile_unverified')) {
+                    /*
+                     * If user application is in provisioning.
+                     */
+                    $this->Session->setFlash('Your profile is in verification process.Pleasae wait for it to finish.', 'flash_error');
+                    return $this->redirect(array('controller' => 'profile', 'action' => 'index'));
+                } elseif ($previous_existence_check['Profile']['verified'] === Configure::read('profile_verified')) {
+                    /*
+                     * If user application has been verified before.
+                     */
+                    $this->Session->setFlash('Your profile is already verified.', 'flash_error');
+                    return $this->redirect(array('controller' => 'profile', 'action' => 'index'));
+                }
+            } else {
+                /*
+                 * If user is applying for first time.
+                 */
+                $this->Profile->create();
+                $this->Profile->set('uid', CakeSession::read('Auth.User.id'));
+                $this->Profile->set('verified', Configure::read('profile_unverified'));
+                $this->Profile->set('verificationimage', $imgname);
+                $this->Profile->set('cardnumber', $this->request->data['cardnumber']);
+            }
             if ($this->Profile->save()) {
                 /*
                  * Add code here to send emails to support staff so that they can verify the profile.
@@ -238,20 +284,20 @@ class ProfileController extends AppController {
             $option = $this->request->data['option'];
             $uid = $this->request->data['uid'];
             $pid = $this->request->data['pid'];
-            
+
             $aws_sdk = $this->get_aws_sdk();
             $sqs_client = $aws_sdk->createSqs();
 
             $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => Configure::read('email_queue')));
             $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
-            
+
             $this->loadModel('User');
             $userdata = $this->User->find('first', array('conditions' => array('id' => $uid)));
 
             if ($option == 'TRUE') {
                 $this->Profile->id = $pid;
                 $this->Profile->set('verified', Configure::read('profile_verified'));
-                
+
                 if ($this->Profile->save()) {
                     /*
                      * Add code here to send email to the user that he has been verified.
@@ -273,22 +319,27 @@ class ProfileController extends AppController {
                 echo '{"error":1}';
                 exit();
             } else {
-                /*
-                 * Add code here to send email to the user that his verification has been rejected.However he can reapply again.
-                 */
+                $this->Profile->id = $pid;
+                $this->Profile->set('verified', Configure::read('profile_rejected'));
 
-                $email_to_be_sent = array();
-                $email_to_be_sent['link'] = Router::url(array('controller' => 'profile', 'action' => 'index'), true);
-                $email_to_be_sent['title'] = 'Profile Rejected';
-                $email_to_be_sent['subject'] = 'Profile Rejected';
-                $email_to_be_sent['content'] = 'Sorry we cant verify the details you provided but you can reapply again.'
-                        . 'PLease click below button to reapply for verification.';
-                $email_to_be_sent['button_text'] = 'Your Profile';
-                $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $userdata);
+                if ($this->Profile->save()) {
+                    /*
+                     * Add code here to send email to the user that his verification has been rejected.However he can reapply again.
+                     */
 
-                echo '{"success":2}';
-                $this->send_email_from_sqs();
-                exit();
+                    $email_to_be_sent = array();
+                    $email_to_be_sent['link'] = Router::url(array('controller' => 'profile', 'action' => 'index'), true);
+                    $email_to_be_sent['title'] = 'Profile Rejected';
+                    $email_to_be_sent['subject'] = 'Profile Rejected';
+                    $email_to_be_sent['content'] = 'Sorry we cant verify the details you provided but you can reapply again.'
+                            . 'PLease click below button to reapply for verification.';
+                    $email_to_be_sent['button_text'] = 'Your Profile';
+                    $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $userdata);
+
+                    echo '{"success":2}';
+                    $this->send_email_from_sqs();
+                    exit();
+                }
             }
         }
     }

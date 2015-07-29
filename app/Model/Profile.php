@@ -24,7 +24,7 @@ class Profile extends AppModel
         'verified' => array(
             'type' => 'string',
             'null' => 'false',
-            'default' => "0"
+            'default' => "-2"
         ),
         'verificationimage' => array(
             'type' => 'string',
