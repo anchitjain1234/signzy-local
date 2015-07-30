@@ -130,7 +130,7 @@ $(function () {
                     if(res.indexOf("success") > -1)
                     {
                         faceflag = true;
-                        processedimg = doc_name.split('.')[0]+'processed.jpeg';
+                        processedimg = doc_name;
                         verified_face = processedimg;
                         upload_preview.html("<img src='preview/"+processedimg+"/' alt='face detected'/>");
                         console.log(processedimg);

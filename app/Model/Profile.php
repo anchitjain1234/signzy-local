@@ -40,6 +40,14 @@ class Profile extends AppModel
             'type' => 'string',
             'null' => 'true',
             'default' => null
+        ),
+        'created' => array(
+            'type' => 'timestamp',
+            'null' => 'false'
+        ),
+        'modified' => array(
+            'type' => 'timestamp',
+            'null' => 'false'
         )
     );
 }

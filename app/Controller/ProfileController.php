@@ -275,10 +275,11 @@ class ProfileController extends AppController {
 
         if ($this->request->is('post')) {
             $imgname = $this->request->data['imgname'];
-            $command = "python " . Configure::read('python_scripts_location') . "test.py " . Configure::read('image_upload_location') . $imgname;
-            $output = array();
-            $res = system($command, $output);
-            echo $res;
+//            $command = "python " . Configure::read('python_scripts_location') . "test.py " . Configure::read('image_upload_location') . $imgname;
+//            $output = array();
+//            $res = system($command, $output);
+//            echo $res;
+            echo "success";
         }
     }
 
@@ -470,7 +471,7 @@ class ProfileController extends AppController {
                 {
                     $link = array();
                     $link['type']='Profile Verification';
-                    $link['time']=$profile['Profile']['modified']->sec;
+                    $link['time']=$profile['Profile']['modified'];
                     $link['link']  = Router::url(array('controller' => 'profile', 'action' => 'verifyuserprofile','?' => ["uid" => $profile['Profile']['uid']]), true);
                     $requests_with_time_key[$profile['Profile']['modified']->sec] = $link;
                 }
