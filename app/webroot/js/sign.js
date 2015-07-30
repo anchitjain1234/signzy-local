@@ -83,6 +83,7 @@ $(function () {
             method: "POST",
             data: {"status": status, "userid": userid, "docuid": docuid,"image":image_captured_url}
         }).success(function (res) {
+//            res = JSON.parse(res);
             if (res['success'])
                 {
                     window.location = "trail/" + docuid;

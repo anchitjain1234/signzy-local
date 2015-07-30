@@ -34,12 +34,12 @@ class Profile extends AppModel
         'profilepicture' => array(
             'type' => 'string',
             'null' => 'true',
-            'default' => "null"
+            'default' => null
         ),
         'cardnumber' => array(
             'type' => 'string',
             'null' => 'true',
-            'default' => "null"
+            'default' => null
         )
     );
 }

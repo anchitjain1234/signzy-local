@@ -16,27 +16,38 @@ function change_status_number_to_status($status) {
 ?>
 
 <div class="container">
-    <div class="alert alert-warning alert-dismissible" role="alert">
-        <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-        Your account is <strong>not yet verified</strong>. Please verify by uploading your pan card or passport or Aadhar card 
-        or Driving License <?php echo $this->Html->link('click here',array('controller' => 'profile','action'=>'verification'))?>!
+    <div class="row">
     </div>
-
+    <div class="row">
+    </div>
+    <div class="row">
+    </div>
     <div class="row">
         <div class="col-md-2" id="profilepicture">
-            <?php echo $this->Html->image('profile.jpg', array('alt' => 'Profile Image', 'class' => 'img-circle')); ?>
-            <?php echo $this->Html->link('Update Profile Picture',array('controller' => 'profile','action'=>'profilepicture'),
-                    array('class'=>'btn btn-success'))?>
+            <?php if(isset($profile) && $profile!=[])
+            {
+                $link = Router::url(array('controller'=>'profile','action'=>'preview',$profile['Profile']['profilepicture']), true);
+                echo "<img src='".$link."' alt='Profile Picture' width='160' height='150'>";
+            }
+            else
+            {
+                echo $this->Html->image('profile.jpg', array('alt' => 'Profile Image', 'width'=>'160','height'=>'150'));
+            }
+             ?>
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal_facescan" id="update_picture">
+                Update Profile Picture
+            </button>
         </div>
         <div class="col-md-10">
             <div class="row">
                 <div class="col-md-12">
                     <div><h1 style="display:inline-block;"><?php echo $name; ?></h1>
                         <?php
-                        if ($userdata['User']['verified'] === 1) {
+                        if (isset($profile['Profile']['verified']) && $profile['Profile']['verified'] === Configure::read('profile_verified')) {
                             echo "<span class=\"label label-success\">Verified</span></div>";
                         } else {
                             echo "<span class=\"label label-danger\">Not Verified</span></div>";
+                            echo $this->Html->link('Click to verify profile',array('controller'=>'profile','action'=>'verification'),array('class'=>'btn btn-success pull-right'));
                         }
                         ?>
 
@@ -106,6 +117,58 @@ function change_status_number_to_status($status) {
             </div>
 
 
+        </div>
+    </div>
+
+    <div class="modal fade" id="modal_facescan" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close close_facescan" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="myModalLabel">Facescan</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-offset-4">
+                            <button id="startcamera" class="btn btn-success">Start camera</button>
+                            <button id="stopcamera" class="btn btn-danger">Stop camera</button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8 col-md-offset-2">
+                            <h5>Place your face in front of the camera</h5>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8 col-md-offset-2">
+                            <div class="camera">
+                                <video id="video">Video stream not available.</video> 
+                            </div>
+                        </div>
+                        <canvas id="canvas" style="display: none;">
+                        </canvas>
+
+                    </div>
+                    <div class="row">
+                        <div class="col-md-2 col-md-offset-5">
+                            <button id="startbutton" class="btn btn-default">Capture Image</button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8 col-md-offset-2">
+                            <div class="output">
+                                <img id="photo" alt="The screen capture will appear in this box."> 
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default close_facescan" data-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="submit_new_picture" disabled="disabled">Submit new picture</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>

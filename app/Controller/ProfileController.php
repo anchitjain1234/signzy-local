@@ -1,4 +1,34 @@
 <?php
+require('../vendor/fpdf.php');
+require('../vendor/fpdi.php');
+require('../vendor/PDFMerger.php');
+class PDF extends FPDF {
+
+// Page header
+            function Header() {
+                // Logo
+                $this->Image('/home/anchit/logo.png', 10, 6, 30);
+                // Arial bold 15
+                $this->SetFont('Arial', 'B', 15);
+                // Move to the right
+                $this->Cell(80);
+                // Title
+                $this->Cell(70, 10, 'Signatories Included', 1, 0, 'C');
+                // Line break
+//                $this->Ln(20);
+            }
+
+//// Page footer
+//            function Footer() {
+//                // Position at 1.5 cm from bottom
+//                $this->SetY(-15);
+//                // Arial italic 8
+//                $this->SetFont('Arial', 'I', 8);
+//                // Page number
+//                $this->Cell(0, 10, 'Page ' . $this->PageNo() . '/{nb}', 0, 0, 'C');
+//            }
+
+        }
 
 class ProfileController extends AppController {
 
@@ -35,12 +65,29 @@ class ProfileController extends AppController {
             'order' => array('created' => -1),
         );
         $this->set('disputeduploads', $this->Document->find('all', $params));
+        
+        $profileinfo = $this->Profile->find('first', array('conditions' => array('uid' => CakeSession::read('Auth.User.id'))));
+//        
+//        if(isset($profileinfo) && $profileinfo!=[] && ($profileinfo['Profile']['verified'] != Configure::read('profile_verified') || $profileinfo['Profile']['verified'] != Configure::read('profile_unverified')))
+//        {
+//            $this->Session->setFlash('Your account is not yet verified. Please verify by uploading your pan card','flash_error');
+//        }
+//        else
+//        {
+//            $this->Session->setFlash('Your account is not yet verified. Please verify by uploading your pan card','flash_error');
+//        }
+        $this->set('profile',$profileinfo);
     }
 
     public function verification() {
         if ($this->request->is('get')) {
             $previous_existence_check = $this->Profile->find('first', array('conditions' => array('uid' => CakeSession::read('Auth.User.id'))));
             if ($previous_existence_check) {
+                if(!isset($previous_existence_check['Profile']['profilepicture']))
+                {
+                    $this->Session->setFlash('Please capture your profile picture first having your face before applying for verification.', 'flash_error');
+                    return $this->redirect(array('controller' => 'profile', 'action' => 'index'));
+                }
                 if ($previous_existence_check['Profile']['verified'] === Configure::read('profile_rejected')) {
                     $this->render();
                 } elseif ($previous_existence_check['Profile']['verified'] === Configure::read('profile_unverified')) {
@@ -57,11 +104,67 @@ class ProfileController extends AppController {
                     return $this->redirect(array('controller' => 'profile', 'action' => 'index'));
                 }
             }
+            else
+            {
+                $this->Session->setFlash('Please capture your profile picture first having your face before applying for verification.', 'flash_error');
+                return $this->redirect(array('controller' => 'profile', 'action' => 'index'));
+            }
         }
     }
 
     public function profilepicture() {
-        
+        if($this->request->is('post')){
+            $profile = $this->request->data['profile'];
+            $profile_check = $this->Profile->find('first',array('conditions'=>array('uid'=>CakeSession::read('Auth.User.id'))));
+            
+            /*
+             * Save base64 encoded image into location.
+             */
+            
+            /*
+             * Add code here to upload this asynchronusly into S3.
+             */
+            list($type, $data) = explode(';', $profile);
+            list(, $data) = explode(',', $data);
+            $data = base64_decode($data);
+
+            $imgname = $this->get_temporary_document_name();
+            $complete_path = Configure::read('image_upload_location') . $imgname . ".png";
+            $file_created = fopen($complete_path, 'w');
+            file_put_contents($complete_path, $data);
+
+            if(isset($profile_check) && $profile_check!=[])
+            {
+                $this->Profile->id=$profile_check['Profile']['id'];
+                $this->Profile->set('profilepicture',$imgname.".png");
+                
+                if($this->Profile->save())
+                {
+                    $this->Session->setFlash('Profile Picture updated successfully.','flash_success');
+                    echo '{"success":true}';
+                    exit();
+                }
+                echo '{"error":1}';
+                exit();
+            }
+            else
+            {
+                /*
+                 * Case when profile of user does not exists.
+                 */
+                $this->Profile->create();
+                $this->Profile->set('uid',CakeSession::read('Auth.User.id'));
+                $this->Profile->set('profilepicture',$imgname.".png");
+                if($this->Profile->save())
+                {
+                    $this->Session->setFlash('Profile Picture updated successfully.','flash_success');
+                    echo '{"success":true}';
+                    exit();
+                }
+                echo '{"error":1}';
+                exit();
+            }
+        }
     }
 
     public function imgupload() {
@@ -193,8 +296,11 @@ class ProfileController extends AppController {
 
             $previous_existence_check = $this->Profile->find('first', array('conditions' => array('uid' => CakeSession::read('Auth.User.id'))));
             if ($previous_existence_check) {
-                if ($previous_existence_check['Profile']['verified'] === Configure::read('profile_rejected')) {
+                if ($previous_existence_check['Profile']['verified'] === Configure::read('profile_rejected') || $previous_existence_check['Profile']['verified'] === Configure::read('profile_not_exists')) {
+                    $this->Profile->id = $previous_existence_check['Profile']['id'];
                     $this->Profile->set('verified', Configure::read('profile_unverified'));
+                    $this->Profile->set('cardnumber', $this->request->data['cardnumber']);
+                    $this->Profile->set('verificationimage', $imgname);
                 } elseif ($previous_existence_check['Profile']['verified'] === Configure::read('profile_unverified')) {
                     /*
                      * If user application is in provisioning.
@@ -259,7 +365,7 @@ class ProfileController extends AppController {
 
         if ($this->request->is('get')) {
 
-            if ($userinfo['User']['type'] != Configure::read('customer')) {
+            if (isset($userinfo['User']['type']) && $userinfo['User']['type'] != '' && $userinfo['User']['type'] != Configure::read('customer')) {
 
                 if (isset($this->params['url']['uid'])) {
                     $applier_id = $this->params['url']['uid'];
@@ -274,9 +380,13 @@ class ProfileController extends AppController {
 
                 $this->set('userinfo', $applier_profile);
             }
+            else
+            {
+                throw new NotFoundException('Invalid URL');
+            }
         }
 
-        if ($this->request->is('post') && $userinfo['User']['type'] != Configure::read('customer')) {
+        if ($this->request->is('post') && isset($userinfo['User']['type']) && $userinfo['User']['type'] != '' && $userinfo['User']['type'] != Configure::read('customer')) {
             $this->request->allowMethod('ajax');
             $this->autorender = false;
             $this->layout = false;
@@ -341,6 +451,100 @@ class ProfileController extends AppController {
                     exit();
                 }
             }
+        }
+    }
+    
+    public function support()
+    {
+        $userinfo = $this->User->find('first', array('conditions' => array('id' => CakeSession::read('Auth.User.id'))));
+        
+        if (isset($userinfo['User']['type']) && $userinfo['User']['type'] != '' && $userinfo['User']['type'] != Configure::read('customer')) {
+            
+            if($this->request->is('get'))
+            {
+                $unverifiedprofiles = $this->Profile->find('all',array('conditions'=>array('verified'=>  Configure::read('profile_unverified'))));
+                $this->loadModel('Col');
+                $unverifiedphotos = $this->Col->find('all',array('conditions'=>array('photoverification'=>  Configure::read('photo_unverified'))));
+                $requests_with_time_key = array();
+                foreach($unverifiedprofiles as $profile)
+                {
+                    $link = array();
+                    $link['type']='Profile Verification';
+                    $link['time']=$profile['Profile']['modified']->sec;
+                    $link['link']  = Router::url(array('controller' => 'profile', 'action' => 'verifyuserprofile','?' => ["uid" => $profile['Profile']['uid']]), true);
+                    $requests_with_time_key[$profile['Profile']['modified']->sec] = $link;
+                }
+                foreach($unverifiedphotos as $photo)
+                {
+                    $link = array();
+                    $link['type']='Signatory Photo Verification';
+                    $link['time']=$photo['Col']['modified'];
+                    $link['link']  = Router::url(array('controller' => 'documents', 'action' => 'photoverification', '?' => ["did" => $photo['Col']['did'], "uid" => $photo['Col']['uid']]), true);
+                    $requests_with_time_key[$photo['Col']['modified']->sec] = $link;
+                }
+                krsort($requests_with_time_key);
+//                debug($requests_with_time_key);
+                $this->set('requests',$requests_with_time_key);
+            }
+        }
+        else
+        {
+            throw new NotFoundException('Invalid URL');
+        }
+    }
+    
+    public function admin()
+    {
+        $userinfo = $this->User->find('first', array('conditions' => array('id' => CakeSession::read('Auth.User.id'))));
+        
+        if (isset($userinfo['User']['type']) && $userinfo['User']['type'] != '' && $userinfo['User']['type'] == Configure::read('admin')) {
+            
+            if($this->request->is('get')){
+                $this->render();
+            }
+            if($this->request->is('post'))
+            {
+                $this->request->allowMethod('ajax');
+                $this->autorender = false;
+                $this->layout = false;
+                
+                $email_entered = $this->request->data['email'];
+                $type = $this->request->data['type'];
+                
+                $aws_sdk = $this->get_aws_sdk();
+                $sqs_client = $aws_sdk->createSqs();
+
+                $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => Configure::read('email_queue')));
+                $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
+                
+                $this->loadModel('User');
+                $user = $this->User->find('first',array('conditions'=>array('username'=>$email_entered)));
+                
+                $this->User->id = $user['User']['id'];
+                $this->User->set('type', $type);
+                
+                if($this->User->save())
+                {
+                    $email_to_be_sent = array();
+                    $email_to_be_sent['link'] = Router::url(array('controller' => 'profile', 'action' => 'index'), true);
+                    $email_to_be_sent['title'] = 'Support Acoount';
+                    $email_to_be_sent['subject'] = 'Support Acoount';
+                    $email_to_be_sent['content'] = 'Congrats your account has been eleveated to become support account.'
+                            . 'You can now review the verification requests.Click below button to view tour profile and review'
+                            . 'verification requests.';
+                    $email_to_be_sent['button_text'] = 'Your Profile';
+                    $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $user);
+                    echo '{"success":true}';
+                    $this->send_email_from_sqs();
+                    exit();
+                }
+                echo '{"error":1}';
+                exit();
+            }
+        }
+        else
+        {
+            throw new NotFoundException('Invalid URL');
         }
     }
 

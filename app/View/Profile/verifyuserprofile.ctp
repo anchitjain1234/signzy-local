@@ -13,8 +13,9 @@
             <img src="<?php echo $link; ?>" alt="face detected"/>
         </div>
         <div class="col-md-6">
-            <h4 class="pid" id="<?php echo $userinfo['Profile']['id']; ?>">PAN Card Number</h4>
-            <p><?php echo $userinfo['Profile']['cardnumber']; ?></p>
+            <h4 class="pid" id="<?php echo $userinfo['Profile']['id']; ?>">Profile Picture</h4>
+            <?php $link2 = $this->Html->url(array('controller'=>'profile','action'=>'preview',$userinfo['Profile']['profilepicture']), $full = TRUE); ?>
+           <img src="<?php echo $link2; ?>" alt="face detected"/>
         </div>
     </div>
     

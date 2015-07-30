@@ -184,10 +184,6 @@ $(function () {
                   {
                       alert("Data cant be saved.Try again");
                   }
-                  else if(res['error'] === 2)
-                  {
-                      alert("Invalid request");
-                  }
                   else
                   {
                       alert("Unknown error.");

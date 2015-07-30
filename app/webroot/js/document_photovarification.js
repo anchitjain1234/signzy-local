@@ -9,7 +9,8 @@ $(function () {
             method: "POST",
             data: {"uid": uid,"option":option,"did":did}
         }).success(function(res){
-            res = JSON.parse(res);
+//            res = JSON.parse(res);
+//            console.log(res["success"]);
             if(res["success"])
             {
                 if(res["success"]==1)

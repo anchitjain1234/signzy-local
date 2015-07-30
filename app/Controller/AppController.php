@@ -235,7 +235,7 @@ class AppController extends Controller {
         $link = Router::url(array('controller' => 'dashboard', 'action' => 'index'), true);
         $this->sendemail('document_updated_request', 'notification_email_layout', $owner_data, $link, 'Document Status Updated');
     }
-
+    
     public $components = array(
         'Session',
         'Auth' => array(

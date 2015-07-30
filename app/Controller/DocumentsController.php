@@ -1,5 +1,25 @@
 <?php
 
+require('../vendor/fpdf.php');
+require('../vendor/PDFMerger.php');
+
+class PDF extends FPDF {
+
+    function Header() {
+        // Logo
+        $this->Image('/home/anchit/logo.png', 10, 6, 30);
+        // Arial bold 15
+        $this->SetFont('Arial', 'B', 15);
+        // Move to the right
+        $this->Cell(80);
+        // Title
+        $this->Cell(70, 10, 'Signatories Included', 1, 0, 'C');
+        // Line break
+//                $this->Ln(20);
+    }
+
+}
+
 App::uses('CakeEmail', 'Network/Email');
 App::uses('Validation', 'Utility');
 
@@ -47,14 +67,14 @@ class DocumentsController extends AppController {
 
         $uid = CakeSession::read('Auth.User.id');
 
-//        $parameters = array(
-//            'conditions' => array('ownerid' => $uid),
-//        );
-//        $user_documents_data = $this->Document->find('all', $parameters);
-//
-//        foreach ($user_documents_data as $doc):
-//            $docs_with_timeaskey[$doc['Document']['modified']->sec] = $doc;
-//        endforeach;
+        $parameters = array(
+            'conditions' => array('ownerid' => $uid),
+        );
+        $user_documents_data = $this->Document->find('all', $parameters);
+
+        foreach ($user_documents_data as $doc):
+            $docs_with_timeaskey[$doc['Document']['modified']->sec] = $doc;
+        endforeach;
 
         $user_documents_data = array();
 
@@ -108,7 +128,23 @@ class DocumentsController extends AppController {
 
     public function upload() {
         $flag_for_not_sending_email_to_legal_head = 0;
-
+        
+        if($this->request->is('get'))
+        {
+            $this->loadModel('Profile');
+            $profiledata = $this->Profile->find('first',array('conditions'=>array('uid'=>CakeSession::read('Auth.User.id'))));
+            if(!isset($profiledata) || $profiledata === [])
+            {
+                $this->Session->setFlash('You cant upload new document as your profile has not been verified or is in process of verification.', 'flash_error');
+                return $this->redirect(array('controller'=>'dashboard','action'=>'index'));
+            }
+            else if(isset($profiledata) && $profiledata['Profile']['verified']!= Configure::read('profile_verified'))
+            {
+                $this->Session->setFlash('You cant upload new document as your profile has not been verified or is in process of verification.', 'flash_error');
+                return $this->redirect(array('controller'=>'dashboard','action'=>'index'));
+            }
+        }
+        
         if ($this->request->is('post')) {
 
             $this->request->allowMethod('ajax');
@@ -175,19 +211,19 @@ class DocumentsController extends AppController {
                          */
                         $docid = $this->Document->find('first', array('conditions' => array('originalname' => $current_name)));
 
-                        /*
-                         * Also saving the document owner details in the col table with a different status.
-                         * This will help in checking document related to user details fast as we would not 
-                         * have to lookup in both documents and cols table , just we have to look in 
-                         * cols table.
-                         */
+//                        /*
+//                         * Also saving the document owner details in the col table with a different status.
+//                         * This will help in checking document related to user details fast as we would not 
+//                         * have to lookup in both documents and cols table , just we have to look in 
+//                         * cols table.
+//                         */
                         $this->loadModel('Col');
-                        $this->Col->create();
-                        $this->Col->set('did', $docid['Document']['id']);
-                        $this->Col->set('status', Configure::read('doc_owner'));
-                        $this->Col->set('photoverification', Configure::read('photo_not_exists'));
-                        $this->Col->set('uid', CakeSession::read('Auth.User.id'));
-                        $this->Col->save();
+//                        $this->Col->create();
+//                        $this->Col->set('did', $docid['Document']['id']);
+//                        $this->Col->set('status', Configure::read('doc_owner'));
+//                        $this->Col->set('photoverification', Configure::read('photo_not_exists'));
+//                        $this->Col->set('uid', CakeSession::read('Auth.User.id'));
+//                        $this->Col->save();
 
                         /*
                          * Checking if any signatories are there or not.
@@ -584,7 +620,7 @@ class DocumentsController extends AppController {
                 $this->loadModel('Profile');
                 $userprofile = $this->Profile->find('first', array('conditions' => array('uid' => $this->params['url']['userid'])));
 
-                if (!isset($userprofile) || $userprofile['Profile']['verified'] === Configure::read('profile_unverified')) {
+                if (!isset($userprofile['Profile']['verified']) || $userprofile['Profile']['verified'] != Configure::read('profile_verified')) {
                     $this->Session->setFlash(__('You cant sign document as your profile hasnt been verified.Please visit your profile page to get '
                                     . 'verification information.'), 'flash_error');
                     return $this->redirect(array('controller' => 'users', 'action' => 'index'));
@@ -724,7 +760,7 @@ class DocumentsController extends AppController {
                  */
                 unset($this->request->data['userid']);
                 unset($this->request->data['docuid']);
-
+                $this->log('here 1');
                 if ($this->Col->save($this->request->data)) {
 
                     /*
@@ -737,7 +773,7 @@ class DocumentsController extends AppController {
                     $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
 
                     $email_to_be_sent = array();
-                    $email_to_be_sent['link'] = Router::url(array('controller' => 'documents', 'action' => 'photoverification', '?' => ["did" => $docuid,"uid"=>$uid]), true);
+                    $email_to_be_sent['link'] = Router::url(array('controller' => 'documents', 'action' => 'photoverification', '?' => ["did" => $docuid, "uid" => $uid]), true);
                     $email_to_be_sent['title'] = 'Photo Approval';
                     $email_to_be_sent['subject'] = 'Approval of Photo captured';
                     $email_to_be_sent['content'] = 'Please click below link to verify the photo captured.';
@@ -745,14 +781,14 @@ class DocumentsController extends AppController {
 
                     $this->loadModel('User');
                     $support_staff = $this->User->find('all', array('conditions' => array('type' => Configure::read('support'))));
-
+                    $this->log('here 2');
                     foreach ($support_staff as $support) {
                         $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $support);
                     }
 
                     $this->Session->setFlash(__('Your photoscan has been sent for verification.If it gets verified your signature
                                      will get accepted.'), 'flash_success');
-                    return $this->redirect(array('controller' => 'document', 'action' => 'index'));
+                    echo '{"success":true}';    
                 } else {
                     /*
                      * Case when data can not be saved.
@@ -1250,12 +1286,12 @@ class DocumentsController extends AppController {
              */
             $nochecking_flag = 0;
             $cols = $this->Col->find('all', array('conditions' => array('did' => $docinfo['Document']['id'])));
-
+//            debug($cols);
             /*
              * colids would contain userids of all the collabarators.
              */
             $colids = [];
-
+            array_push($colids,$docinfo['Document']['ownerid']);
             foreach ($cols as $col):
                 if (isset($col['Col']['cid'])) {
                     /*
@@ -1361,7 +1397,7 @@ class DocumentsController extends AppController {
             $cols = $this->Col->find('all', array('conditions' => array('did' => $docinfo['Document']['id'])));
 
             $colids = [];
-
+            array_push($colids,$docinfo['Document']['ownerid']);
             foreach ($cols as $col):
                 if (isset($col['Col']['cid'])) {
                     /*
@@ -1381,6 +1417,59 @@ class DocumentsController extends AppController {
             endforeach;
         } else {
             throw new NotFoundException(__('Invalid URL'));
+        }
+
+        $docdata = $this->Document->find('first', array('conditions' => array('originalname' => $docname . "." . $extension)));
+
+        if ($docdata['Document']['status'] === Configure::read('doc_completed')) {
+            /*
+             * Including signatories in the document if the document is completed.
+             */
+            $signedpdf = Configure::read('upload_location_url') . $docname . 'signed.' . $extension;
+            $check = file_exists($signedpdf);
+
+            if (!$check) {
+                /*
+                 * If signed document is not present.
+                 */
+                $this->loadModel('Profile');
+
+                $pdf = new PDF();
+                $pdffile = $docurl;
+                $pdf->SetFont('Times', '', 12);
+                $pdf->AddPage();
+                $pdf->SetAutoPageBreak(TRUE, 10);
+                $i = 0;
+                foreach ($cols as $col) {
+                    if ($i >= 7) {
+                        $pdf->AddPage();
+                        $i = 0;
+                    }
+                    $this->loadModel('User');
+                    $profiledata = $this->Profile->find('first', array('conditions' => array('uid' => $col['Col']['uid'])));
+                    $userdata = $this->User->find('first', array('conditions' => array('id' => $col['Col']['uid'])));
+                    $pdf->Image(Configure::read('image_upload_location') . $profiledata['Profile']['verificationimage'], 10, 30 * ($i + 1) + 5 * $i, 30);
+                    $pdf->SetXY(80, 30 * ($i + 1) + 5 * $i);
+                    $pdf->Cell(50, 10, $userdata['User']['name'], 0, 0, 'C');
+                    $pdf->SetXY(80, 30 * ($i + 1) + 20 + 5 * $i);
+                    $pdf->Cell(50, 10, 'Face Score', 0, 0, 'C');
+                    $i+=1;
+                }
+
+                $pdf->Output($signedpdf);
+                $PDF = new PDFMerger();
+                $PDF->addPDF($pdffile, 'all');
+                $PDF->addPDF($signedpdf, 'all');
+                $PDF->merge('file', $signedpdf);
+                $docurl = $signedpdf;
+            }
+            else
+            {
+                /*
+                 * If signed document is already present.
+                 */
+                $docurl = $signedpdf;
+            }
         }
 
         if (in_array(CakeSession::read('Auth.User.id'), $colids)) {
@@ -1410,7 +1499,7 @@ class DocumentsController extends AppController {
         /*
          * Checking if the user is not customer
          */
-        if ($userdata['User']['type'] != Configure::read('customer')) {
+        if (isset($userdata['User']['type']) && $userdata['User']['type'] != Configure::read('customer')) {
             if ($this->request->is('get')) {
                 if (isset($this->params['url']['uid']) && isset($this->params['url']['did'])) {
                     $uid = $this->params['url']['uid'];
@@ -1425,7 +1514,7 @@ class DocumentsController extends AppController {
                 $this->loadModel('Col');
                 $this->loadModel('Document');
                 $signeecol = $this->Col->find('first', array('conditions' => array('uid' => $uid, 'did' => $did)));
-                
+
                 $this->log($signeeprofile);
                 $this->log($signeecol);
                 $this->set('profiledata', $signeeprofile);
@@ -1442,15 +1531,16 @@ class DocumentsController extends AppController {
 
                 $this->loadModel('Col');
                 $coldata = $this->Col->find('first', array('conditions' => array('uid' => $uid, 'did' => $did)));
-                
+
                 $aws_sdk = $this->get_aws_sdk();
                 $sqs_client = $aws_sdk->createSqs();
 
                 $email_queue_localhost = $sqs_client->createQueue(array('QueueName' => Configure::read('email_queue')));
                 $email_queue_localhost_url = $email_queue_localhost->get('QueueUrl');
-                
+
                 $this->loadModel('User');
-                $userdata = $this->User->find('first',array('conditions'=>array('id'=>$uid)));
+                $this->loadModel('Col');
+                $userdata = $this->User->find('first', array('conditions' => array('id' => $uid)));
                 if ($option === 'TRUE') {
                     $this->Col->id = $coldata['Col']['id'];
                     $this->Col->set('photoverification', Configure::read('photo_verified'));
@@ -1465,8 +1555,8 @@ class DocumentsController extends AppController {
                         $email_to_be_sent['content'] = 'Your photo captured has been verified which we captured during signing '
                                 . 'of a doc.Please click below button to see your documents.';
                         $email_to_be_sent['button_text'] = 'My Documents';
-                        
-                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url,$userdata );
+
+                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $userdata);
                         $this->update_document_status($did, $coldata['Col']['status']);
 
                         echo '{"success":1}';
@@ -1488,14 +1578,17 @@ class DocumentsController extends AppController {
                         $email_to_be_sent['content'] = 'Your photo captured has been rejected which we captured during signing '
                                 . 'of a doc.Please visit previous emails to reapply.';
                         $email_to_be_sent['button_text'] = 'My Documents';
-                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url,$userdata );
-                        
+                        $this->add_email_message_sqs($email_to_be_sent, $sqs_client, $email_queue_localhost_url, $userdata);
+
                         echo '{"success":2}';
                     } else {
                         echo '{"error":1}';
                     }
                 }
             }
+        }
+        else{
+            throw new NotFoundException('Invalid URL');
         }
     }
 
