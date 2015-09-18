@@ -1,6 +1,7 @@
 # User specific & automatically generated files #
 #################################################
 /app/Config/database.php
+/app/Config/email.php
 /app/webroot/upload
 /app/webroot/uploads
 /app/webroot/files
